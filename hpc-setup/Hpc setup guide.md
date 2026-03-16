@@ -103,9 +103,6 @@ Our SLURM scripts are in the repo root. Before first use, replace the placeholde
 
 ```bash
 sed -i 's|<YOUR_NEU_USERNAME>|YOUR_ACTUAL_USERNAME|g' test_gpu.sh
-sed -i 's|<YOUR_NEU_USERNAME>|YOUR_ACTUAL_USERNAME|g' train_phase1.sh
-sed -i 's|<YOUR_NEU_USERNAME>|YOUR_ACTUAL_USERNAME|g' train_phase2.sh
-sed -i 's|<YOUR_NEU_USERNAME>|YOUR_ACTUAL_USERNAME|g' train_phase3.sh
 ```
 
 ### Submit a Job
@@ -113,18 +110,17 @@ sed -i 's|<YOUR_NEU_USERNAME>|YOUR_ACTUAL_USERNAME|g' train_phase3.sh
 ```bash
 mkdir -p logs
 sbatch test_gpu.sh          # Quick GPU sanity check
-sbatch train_phase1.sh      # Phase 1: PPO drums-only
-sbatch train_phase2.sh      # Phase 2: PPO full grid + discriminator
-sbatch train_phase3.sh      # Phase 3: SAC audio effects
 ```
+
+Training scripts will be added as we build the actual training code.
 
 ### Monitor Your Jobs
 
 ```bash
 squeue -u $USER                             # Check job status
 watch -n 10 squeue -u $USER                 # Auto-refresh every 10s
-tail -f logs/phase1_<JOB_ID>.out            # Watch live output
-cat logs/phase1_<JOB_ID>.err                # Check for errors
+tail -f logs/gpu_test_<JOB_ID>.out          # Watch live output
+cat logs/gpu_test_<JOB_ID>.err              # Check for errors
 scancel <JOB_ID>                            # Cancel a job
 sacct -j <JOB_ID> --format=JobID,State,Elapsed   # Post-run stats
 ```
@@ -235,11 +231,11 @@ cd /scratch/$USER/rl-beat-generation
 git pull origin main
 
 # 5. Submit your job
-sbatch train_phase1.sh
+sbatch test_gpu.sh
 
 # 6. Monitor
 squeue -u $USER
-tail -f logs/phase1_<JOB_ID>.out
+tail -f logs/gpu_test_<JOB_ID>.out
 ```
 
 ---
