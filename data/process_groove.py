@@ -33,28 +33,41 @@ def process_file(midi_path):
             break
 
     if drum_inst is None:
-        return None
+        return []
 
-    end_time = pm.get_end_time()
-    if end_time == 0:
-        return None
+    beats = pm.get_beats()
+    if len(beats) < 5:
+        return []
 
-    grid = np.zeros((4, 16), dtype=np.float32)
+    grids = []
 
-    for note in drum_inst.notes:
-        channel = pitch_to_channel(note.pitch)
-        if channel == -1:
-            continue
+    for i in range(0, len(beats) - 4, 4):
+        start = beats[i]
+        end = beats[i + 4]
 
-        step = int((note.start / end_time) * 16)
-        if step < 0:
-            step = 0
-        if step > 15:
-            step = 15
+        grid = np.zeros((4, 16), dtype=np.float32)
 
-        grid[channel][step] = 1.0
+        for note in drum_inst.notes:
+            if not (start <= note.start < end):
+                continue
 
-    return grid
+            channel = pitch_to_channel(note.pitch)
+            if channel == -1:
+                continue
+
+            relative = (note.start - start) / (end - start)
+            step = int(relative * 16)
+
+            if step < 0:
+                step = 0
+            if step > 15:
+                step = 15
+
+            grid[channel][step] = 1.0
+
+        grids.append(grid)
+
+    return grids
 
 
 def main():
@@ -71,8 +84,7 @@ def main():
 
     for path in midi_files:
         grid = process_file(path)
-        if grid is not None:
-            all_grids.append(grid)
+        all_grids.extend(grid)
 
     if len(all_grids) == 0:
         print("No valid drum grids found")
