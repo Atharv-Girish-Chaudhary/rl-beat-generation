@@ -53,10 +53,12 @@ class BeatGridEnv(gym.Env):
         if (layer, time_step) in self.filled_cells:
             empty = [(l, t) for l in range(self.L) for t in range(self.T) 
                      if (l, t) not in self.filled_cells]
+            #pick a random empty cell and set the sample to 0
             if empty:
-                # Pick a random available cell to maintain training momentum
                 idx = np.random.randint(len(empty))
                 layer, time_step = empty[idx]
+                sample = 0 
+
                 
         # Apply action
         self.grid[layer, time_step] = sample

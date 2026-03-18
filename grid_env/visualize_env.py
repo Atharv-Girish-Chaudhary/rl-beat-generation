@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from env.beat_env import BeatGridEnv
+from grid_env.beat_env import BeatGridEnv
 
 def plot_beat_grid(grid: np.ndarray, phase: int = 2):
     """

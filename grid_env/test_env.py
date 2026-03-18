@@ -1,5 +1,5 @@
 import numpy as np
-from env.beat_env import BeatGridEnv
+from grid_env.beat_env import BeatGridEnv
 
 # Dummy reward function to bypass the real one during testing
 def dummy_reward_fn_phase1(grid, final=False):

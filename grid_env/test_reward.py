@@ -5,7 +5,7 @@ import numpy as np
 # Force the Python path to recognize the root directory so imports work perfectly
 sys.path.append(os.getcwd())
 
-from env.reward import compute_reward
+from grid_env.reward import compute_reward
 
 def run_reward_sanity_check():
     print("--- Testing Reward Function (Phase 1) ---")
