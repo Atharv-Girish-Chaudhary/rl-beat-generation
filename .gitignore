@@ -209,15 +209,23 @@ __marimo__/
 # Mac
 .DS_Store
 
-# Data artifacts (ignore large files)
-data/raw/
-data/samples/
-data/processed/
-data/*.npy
-data/*.npz
-data/*.zip
-
-# BUT keep pipeline code
-!data/
+# Data artifacts and models (ignore large files)
+data/
 !data/README.md
-!data/*.py
+!data/**/*.py
+models/
+logs/
+*.npy
+*.npz
+*.h5
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.mid
+*.midi
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.DS_Store
