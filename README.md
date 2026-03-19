@@ -83,53 +83,64 @@ Phase 2 inherits Phase 1 weights with extra layer channels initialized to zero. 
 ## Project Structure
 
 ```text
-beat_gen/
+rl-beat-generation/
 ├── data/
-│   ├── download_samples.py          # Freesound API sample downloader
-│   ├── process_groove.py            # Groove MIDI → grid converter
-│   ├── raw/                         # Downloaded MIDI files
-│   ├── processed/
-│   │   └── groove_grids.npy         # (N, 4, 16) drum grids
-│   └── samples/
-│       ├── manifest.json            # Sample file → layer+index mapping
-│       ├── kick/
-│       ├── snare/
-│       ├── hihat/
-│       ├── clap/
-│       ├── bass/
-│       ├── melody/
-│       ├── pad/
-│       └── fx/
+│   ├── groove_grids.npy             # (42133, 4, 16) drum grids
+│   ├── slakh_grids.npy              # (2450, 8, 16) multi-instrument grids
+│   ├── musdb_spectrograms.npy       # Phase 3 spectrograms (corrupted)
+│   ├── groove_midi/                 # Raw Groove MIDI dataset
+│   ├── babyslakh/                   # Raw BabySlakh dataset
+│   ├── samples/                     # Raw Freesound samples
+│   │   ├── kick/
+│   │   ├── snare/
+│   │   ├── hihat/
+│   │   ├── clap/
+│   │   ├── bass/
+│   │   ├── melody/
+│   │   ├── pad/
+│   │   └── fx/
+│   └── samples_processed/           # Normalized audio samples
 │
-├── env/
-│   ├── beat_env.py                  # Gymnasium environment
-│   └── reward.py                    # Rule-based + discriminator rewards
+├── data_processing/
+│   ├── download_samples.py          # Freesound API sample downloader
+│   └── process_groove.py            # Groove MIDI → grid converter
+│
+├── grid_env/
+│   ├── __init__.py
+│   ├── beat_env.py                  # Gymnasium environment (Phase 1 & 2)
+│   ├── reward.py                    # Rule-based + discriminator rewards
+│   └── visualize_env.py             # Matplotlib grid visualizer
 │
 ├── models/
-│   ├── actor.py                     # CNN policy network (3-head output)
+│   ├── __init__.py
+│   ├── actor.py                     # CNN policy network (factored 3-head)
 │   ├── critic.py                    # CNN value network
 │   └── discriminator.py             # Transformer encoder discriminator
 │
-├── training/
-│   ├── pretrain_disc.py             # Pre-train discriminator on Groove MIDI
-│   └── train_ppo.py                 # Main PPO training loop (SB3)
+├── training/                        # PPO training loop (TODO)
 │
-├── evaluation/
-│   ├── evaluate.py                  # Quantitative metrics
-│   ├── render_to_audio.py           # Grid → WAV audio rendering
-│   └── check_phase1_ready.py        # Phase transition check
+├── evaluation/                      # Metrics & audio rendering (TODO)
 │
-├── checkpoints/                     # Saved model weights
-│   ├── discriminator_pretrained.pt
-│   ├── phase1_best/
-│   └── phase2_best/
+├── test/
+│   ├── test_env.py                  # Environment sanity checks
+│   ├── test_reward.py               # Reward function tests
+│   ├── test_actor.py                # Actor network tests
+│   └── test_critic.py               # Critic network tests
 │
+├── notebooks/
+│   ├── discriminator_model.ipynb    # Discriminator training notebook
+│   └── discriminator_notes.ipynb    # Discriminator concepts & notes
+│
+├── checkpoints/
+│   └── discriminator_v1.pt          # Trained discriminator weights
+│
+├── configs/                         # Hyperparameters (TODO)
 ├── logs/                            # TensorBoard logs
-│   ├── phase1/
-│   └── phase2/
+├── docs/                            # Documentation
 │
-└── configs/
-    └── config.yaml                  # Hyperparameters
+├── environment.yml                  # Conda environment spec
+├── requirements.txt                 # pip dependencies
+└── README.md
 ```
 
 ---
