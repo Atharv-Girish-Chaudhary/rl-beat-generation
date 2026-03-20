@@ -6,7 +6,7 @@ from data_processing.process_groove import process_file
 
 def test_process_file_basic():
     """
-    Test if process_file returns valid drum grids.
+    Test if process_file returns valid 8x16 drum grids.
     """
 
     # ===== locate project root =====
@@ -38,7 +38,9 @@ def test_process_file_basic():
         grid = grids[0]
 
         assert isinstance(grid, np.ndarray), "Each grid should be a numpy array"
-        assert grid.shape == (4, 16), "Grid shape should be (4, 16)"
+
+        # Updated to 8x16 to match new drum representation
+        assert grid.shape == (8, 16), "Grid shape should be (8, 16)"
 
         # values should be 0 or 1
         assert np.all((grid == 0) | (grid == 1)), "Grid values must be binary"
