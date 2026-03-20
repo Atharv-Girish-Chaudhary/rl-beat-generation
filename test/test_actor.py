@@ -1,7 +1,7 @@
 import torch
 from models.actor import BeatActor
 
-def run_actor_sanity_check():
+def test_actor_sanity_check():
     print("\n--- Testing Actor Network ---")
     
     L, T, S = 4, 16, 15

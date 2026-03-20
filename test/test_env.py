@@ -5,7 +5,7 @@ from grid_env.beat_env import BeatGridEnv
 def dummy_reward_fn_phase1(grid, final=False):
     return 1.0 if final else 0.1
 
-def run_sanity_check():
+def test_sanity_check():
     # 4 layers (Phase 1), 15 samples each (1-indexed, 0 is silence)
     layer_to_samples = {
         0: list(range(1, 16)), 

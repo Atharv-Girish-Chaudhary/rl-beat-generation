@@ -7,7 +7,7 @@ sys.path.append(os.getcwd())
 
 from grid_env.reward import compute_reward
 
-def run_reward_sanity_check():
+def test_reward_sanity_check():
     print("--- Testing Reward Function (Phase 1) ---")
     
     # 1. Construct a theoretically perfect Phase 1 drum beat WITH variation

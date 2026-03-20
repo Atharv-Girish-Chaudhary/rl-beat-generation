@@ -5,7 +5,7 @@ sys.path.append(os.getcwd())
 
 from models.critic import BeatCritic
 
-def run_critic_sanity_check():
+def test_critic_sanity_check():
     print("\n--- Testing Critic Network ---")
     
     L, T, S = 8, 16, 15  # Let's test with Phase 2 dimensions this time
