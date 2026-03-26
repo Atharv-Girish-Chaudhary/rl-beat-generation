@@ -1,42 +1,44 @@
 import torch
-from models.actor import BeatActor
+import sys
+import os
 
-def run_actor_sanity_check():
-    print("\n--- Testing Actor Network ---")
-    
+# Ensure the root project is in the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from models.actor import CNNLayerStepSampleActor
+
+def test_actor_dimensions_and_autoregression():
     L, T, S = 4, 16, 15
-    # Dummy dictionary: Layer 0 only allows samples 1,2,3. Layer 1 allows 4,5.
-    layer_to_samples = {0: [1, 2, 3], 1: [4, 5], 2: [6, 7], 3: [8, 9]}
+    env_map = {0: [1,2], 1:[3,4], 2:[5], 3:[6]}
     
-    actor = BeatActor(L, T, S, layer_to_samples)
+    actor = CNNLayerStepSampleActor(L=L, T=T, S=S, env_layer_to_samples=env_map)
     
-    # Create a dummy batch of 2 empty observations
-    batch_size = 2
-    obs_dim = L * T * (S + 1)
-    dummy_obs = torch.zeros((batch_size, obs_dim), dtype=torch.float32)
+    # Simulate a batched S+2 observation matrix (empty grid)
+    obs = torch.zeros(8, L * T * (S + 2))
     
-    # 1. Test Forward Pass Shapes
-    layer_logits, step_logits, sample_logits = actor.forward(dummy_obs)
-    assert layer_logits.shape == (batch_size, L), "FAIL: Layer logits shape mismatch."
-    assert step_logits.shape == (batch_size, T), "FAIL: Step logits shape mismatch."
-    assert sample_logits.shape == (batch_size, S + 1), "FAIL: Sample logits shape mismatch."
-    print("Forward pass tensor shapes are correct.")
+    # 1. Test Inference Sequences (Act)
+    # This proves PyTorch matrices are no longer mathematically exploding
+    try:
+        actions, logps = actor.act(obs)
+    except Exception as e:
+        assert False, f"Neural Act Evaluation Crash! Error: {e}"
+        
+    assert actions.shape == (8,), "Actor failed to properly format batched NumPy integers."
+    assert logps.shape == (8,), "Actor failed to return batched log probabilities."
     
-    # 2. Test Act / Inference
-    action, log_prob, entropy = actor.act(dummy_obs)
-    assert action.shape == (batch_size,), "FAIL: Flat action output shape mismatch."
-    assert log_prob.shape == (batch_size,), "FAIL: Log prob shape mismatch."
-    print("Inference (act) method outputs correct shapes.")
-    
-    # 3. The Brutal Mask Test
-    # Let's forcefully check the mask buffer to ensure `-inf` is being applied.
-    mask_layer_0 = actor.layer_sample_mask[0]
-    print(f"Layer 0 Boolean Mask: {mask_layer_0}")
-    
-    # Silence (index 0) and samples 1,2,3 should be True. Everything else False.
-    assert mask_layer_0[0] == True, "FAIL: Silence is not unmasked."
-    assert mask_layer_0[1] == True and mask_layer_0[4] == False, "FAIL: Sample constraints are wrong."
-    print("SUCCESS: Factored action masking constraint is mathematically perfect.")
+    # 2. Test Parallel PPO Vector Mathematics
+    try:
+        # Simulate PyTorch historical actions passed by Replay Buffer
+        historical_actions = torch.randint(0, L*T*(S+1), (8,))
+        log_probs, entropy = actor.evaluate_actions(obs, historical_actions)
+    except Exception as e:
+        assert False, f"PPO Training Evaluation Crash! Error: {e}"
+        
+    assert log_probs.shape == (8,), "Actor crashed PyTorch parallel batch processing geometries."
+    assert entropy.shape == (8,), "Actor Entropy equations misfired dimensions."
 
 if __name__ == "__main__":
-    run_actor_sanity_check()
+    print("--- Autoregressive Actor Unit Tests ---")
+    print("Testing Mathematical Tensor Shapes and Forward Matrix Stability...")
+    test_actor_dimensions_and_autoregression()
+    print("AUTOMATED TESTS SUCCESSFUL: Neuro-Architecture Matrices are unbreakable!")

@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from typing import Optional
 
 # Layer Index Constants
@@ -14,6 +15,7 @@ FX = 7
 def compute_reward(
     grid: np.ndarray, 
     final: bool = False, 
+    action_coord: Optional[tuple] = None,
     phase: int = 1, 
     discriminator=None, 
     alpha: float = 0.9, 
@@ -21,12 +23,11 @@ def compute_reward(
 ) -> float:
     """
     Master reward function. 
-    Intermediate steps receive a lightweight heuristic score.
+    Intermediate steps receive a lightweight heuristic score based purely on the Delta (current action).
     Terminal steps receive the full theoretical and discriminator evaluation.
     """
     if not final:
-        # Dense intermediate reward to guide the agent during the rollout
-        return _fast_intermediate_reward(grid, phase)
+        return _fast_intermediate_reward(grid, action_coord, phase)
         
     # Terminal Episode Evaluation
     r_drums = _evaluate_drums(grid)
@@ -35,7 +36,6 @@ def compute_reward(
         r_rules = r_drums
     else:
         r_melodic = _evaluate_melodic_elements(grid)
-        # Phase 2 rule score is the mean of drum competence and melodic competence
         r_rules = (r_drums + r_melodic) / 2.0
 
     # Discriminator Evaluation
@@ -47,62 +47,52 @@ def compute_reward(
     return float((alpha * r_rules) + (beta * r_disc))
 
 
-def _fast_intermediate_reward(grid: np.ndarray, phase: int) -> float:
+def _fast_intermediate_reward(grid: np.ndarray, action_coord: tuple, phase: int) -> float:
     """
-    O(1) complexity checks to provide a breadcrumb trail for the PPO agent.
-    If the agent places a Kick on 0 or a Snare on 4/12, reward it immediately.
+    Evaluates the immediate Delta (action) to prevent infinite reward farming.
     """
+    if action_coord is None:
+        return 0.0
+        
     reward = 0.0
-    L = grid.shape[0]
+    layer, time_step = action_coord
     
-    # 1. The Anchor (Step 0)
-    if grid[KICK, 0] > 0: 
+    # 1. The Anchor (Step 0 Kick)
+    if layer == KICK and time_step == 0 and grid[layer, time_step] > 0: 
         reward += 0.05
         
-    # 2. The Backbeat (Steps 4, 12)
-    if L > SNARE and (grid[SNARE, 4] > 0 or grid[CLAP, 4] > 0):
-        reward += 0.05
-    if L > SNARE and (grid[SNARE, 12] > 0 or grid[CLAP, 12] > 0):
+    # 2. The Backbeat (Steps 4, 12 Snare/Clap)
+    if layer in [SNARE, CLAP] and time_step in [4, 12] and grid[layer, time_step] > 0:
         reward += 0.05
         
-    return reward
+    return float(reward)
 
 
 def _evaluate_drums(grid: np.ndarray) -> float:
-    """
-    Core 4/4 Drum Theory (Phase 1 & Phase 2 Foundation).
-    Evaluates KICK, SNARE, HIHAT, CLAP.
-    """
     T = grid.shape[1]
     kick_active = grid[KICK] > 0
     snare_active = grid[SNARE] > 0
     clap_active = grid[CLAP] > 0
-    hihat_active = grid[HIHAT] > 0
+    
+    # Handle environment arrays of size L=4 or L=8 safely
+    hihat_active = grid[HIHAT] > 0 if grid.shape[0] > HIHAT else np.zeros(T, dtype=bool)
     
     score = 0.0
     
-    # --- Rhythmic Structure (0.0 to 0.4) ---
-    # The "One" must exist
     if kick_active[0]: score += 0.1
-    # Kick on step 8 establishes the half-bar groove
     if kick_active[8]: score += 0.1
     
-    # Backbeat strictly on 4 and 12
     if snare_active[4] or clap_active[4]: score += 0.1
     if snare_active[12] or clap_active[12]: score += 0.1
     
-    # Punish chaotic snare/clap placements on off-beats
     off_beats = [t for t in range(T) if t not in [4, 12]]
     off_beat_hits = np.sum(snare_active[off_beats]) + np.sum(clap_active[off_beats])
-    score -= (off_beat_hits * 0.05)
+    score -= (off_beat_hits * 0.01)
     
-    # --- Hi-Hat Momentum (0.0 to 0.2) ---
     hat_count = np.sum(hihat_active)
     if 4 <= hat_count <= 12:
-        score += 0.2  # Rewards a steady 8th or 16th note pulse with some gaps
+        score += 0.2 
     
-    # --- Repetition with Variation (0.0 to 0.4) ---
-    # Good beats repeat, but not exactly [cite: 692-693].
     first_half = grid[:4, :8] > 0
     second_half = grid[:4, 8:] > 0
     
@@ -120,19 +110,16 @@ def _evaluate_drums(grid: np.ndarray) -> float:
 
 
 def _evaluate_melodic_elements(grid: np.ndarray) -> float:
-    """
-    Harmonic and Spectral Rules (Phase 2 Only).
-    Evaluates BASS, MELODY, PAD, FX interactions.
-    """
+    if grid.shape[0] < 8:
+        return 0.0 # Phase 1 safety explicitly
+        
     kick_active = grid[KICK] > 0
     bass_active = grid[BASS] > 0
     pad_active = grid[PAD] > 0
     fx_active = grid[FX] > 0
-    melody_active = grid[MELODY] > 0
     
     score = 0.0
     
-    # --- Kick & Bass Interlock (0.0 to 0.4) ---
     total_bass = np.sum(bass_active)
     if total_bass > 0:
         simultaneous = np.sum(kick_active & bass_active)
@@ -142,18 +129,15 @@ def _evaluate_melodic_elements(grid: np.ndarray) -> float:
         else:
             score += (lock_ratio * 0.4)
             
-    # --- Pad & FX Sparsity (0.0 to 0.3) ---
     pad_count = np.sum(pad_active)
     fx_count = np.sum(fx_active)
     
     if pad_count <= 2: score += 0.15
-    else: score -= (pad_count - 2) * 0.1  # Muddy mix penalty
+    else: score -= (pad_count - 2) * 0.1 
     
     if fx_count <= 1: score += 0.15
-    else: score -= (fx_count - 1) * 0.1   # Distracting transitions penalty
+    else: score -= (fx_count - 1) * 0.1   
     
-    # --- Global Clutter/Density Constraint (0.0 to 0.3) ---
-    # Humans only have two hands. Punish > 4 instruments at once.
     active_per_step = np.sum(grid > 0, axis=0)
     violations = np.sum(active_per_step > 4)
     
@@ -164,21 +148,27 @@ def _evaluate_melodic_elements(grid: np.ndarray) -> float:
         
     return float(np.clip(score, 0.0, 1.0))
 
+
 def _get_discriminator_score(grid: np.ndarray, discriminator) -> float:
     """
-    Runs the Transformer discriminator to return P(real).
-    Requires wrapping the grid to a PyTorch tensor.
+    Mathematically compresses the S-sample grid down to a simple binary Hit/No-Hit tensor 
+    perfectly matching the Discriminator's trained parameters (Batch, L, T).
     """
-    import torch
     discriminator.eval()
     with torch.no_grad():
-        L, T = grid.shape
-        S = discriminator.S
-        one_hot = torch.zeros(1, L, T, S + 1, device=next(discriminator.parameters()).device)
-        for l in range(L):
-            for t in range(T):
-                one_hot[0, l, t, grid[l, t]] = 1.0
+        # Compress any Silence (0) or Unplayed (-1) into 0.0 (No Hit)
+        # Any actual Sample (1-15) becomes 1.0 (Hit)
+        binary_grid = (torch.tensor(grid) > 0).float()
         
-        logit = discriminator(one_hot)
+        # Add the Batch dimension (B, L, T) -> (1, L, T)
+        binary_grid = binary_grid.unsqueeze(0)
+        
+        # Pass safely through the token embeddings
+        device = next(discriminator.parameters()).device
+        logit, _ = discriminator(binary_grid.to(device))
+        
+        # Since we violently amputated nn.Sigmoid() from the Discriminator architecture, 
+        # we perfectly apply it here ONCE to squash the raw logit into a valid [0, 1] reward prob.
         prob = torch.sigmoid(logit).item()
+        
     return float(prob)

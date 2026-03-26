@@ -66,7 +66,7 @@ class BeatDiscriminator(nn.Module):
         ])
         self.classifier = nn.Sequential(
             nn.Linear(d_model, d_model // 2), nn.ReLU(), nn.Dropout(dropout),
-            nn.Linear(d_model // 2, 1), nn.Sigmoid(),
+            nn.Linear(d_model // 2, 1)
         )
         self.dropout = nn.Dropout(dropout)
 

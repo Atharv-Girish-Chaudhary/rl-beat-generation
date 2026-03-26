@@ -3,7 +3,7 @@ import json
 import time
 import requests
 
-API_KEY = os.environ.get("FREESOUND_API_KEY")
+API_KEY = "DUlTu6Q6fkcXkzmBEualiajL56DIuIq74TuUddA5"
 BASE_URL = "https://freesound.org/apiv2/search/text/"
 
 OUTPUT_DIR = "data/samples"

@@ -2,138 +2,167 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
-from typing import Dict, Tuple
+from typing import Dict, List, Optional
 
-class BeatActor(nn.Module):
-    """
-    CNN-based Policy Network (Actor) for the Beat Grid Environment.
-    Outputs a factored, conditionally-masked action distribution.
-    Optimized for PyTorch MPS (Metal Performance Shaders) on Apple Silicon.
-    """
-    def __init__(self, L: int, T: int, S: int, layer_to_samples: Dict[int, list]):
+class CNNLayerStepSampleActor(nn.Module):
+    def __init__(self, L: int, T: int, S: int, env_layer_to_samples: Dict[int, List[int]]):
         super().__init__()
         self.L = L
         self.T = T
         self.S = S
-        
-        # Register the action mask as a PyTorch Buffer.
-        # This guarantees it moves to your M4 GPU (MPS) automatically alongside the model weights.
-        self.register_buffer("layer_sample_mask", self._build_layer_mask(L, S, layer_to_samples))
-        
-        # --- CNN Backbone ---
-        # Input shape: (Batch, Channels, Height, Width) -> (B, S+1, L, T)
-        self.conv1 = nn.Conv2d(in_channels=S+1, out_channels=32, kernel_size=3, padding=1)
+        self.env_layer_to_samples = env_layer_to_samples
+
+        # in_channels cleanly intercepts our S + 2 temporal observation arrays
+        self.conv1 = nn.Conv2d(in_channels=S + 2, out_channels=32, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
-        
-        conv_out_dim = 64 * L * T
-        
-        self.fc1 = nn.Linear(conv_out_dim, 256)
-        self.fc2 = nn.Linear(256, 128)
-        
-        # --- Factored Output Heads ---
+
+        self.conv_out_dim = 64 * L * T
+        self.base_fc = nn.Linear(self.conv_out_dim, 128)
+
+        # Sequential Autoregressive Heads
         self.layer_head = nn.Linear(128, L)
+        self.layer_emb = nn.Embedding(L, 128)
+        
         self.step_head = nn.Linear(128, T)
+        self.step_emb = nn.Embedding(T, 128)
+        
         self.sample_head = nn.Linear(128, S + 1)
 
-    def _build_layer_mask(self, L: int, S: int, layer_to_samples: Dict[int, list]) -> torch.Tensor:
-        """
-        Builds a boolean tensor of shape (L, S+1) for ultra-fast action masking.
-        True = Valid sample, False = Invalid sample.
-        """
-        mask = torch.zeros((L, S + 1), dtype=torch.bool)
-        mask[:, 0] = True  # Silence (index 0) is universally valid across all layers
-        
-        for layer_idx, valid_samples in layer_to_samples.items():
-            if layer_idx < L:
-                valid_idx = [s for s in valid_samples if s <= S]
-                if valid_idx:
-                    mask[layer_idx, valid_idx] = True
-                    
-        return mask
+        self._build_sample_mask()
 
-    def forward(self, obs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _build_sample_mask(self):
+        """Builds a registered boolean mask preventing illegal Audio/Instrument maps."""
+        mask = torch.zeros(self.L, self.S + 1, dtype=torch.bool)
+        for layer in range(self.L):
+            mask[layer, 0] = True  # Silence (0) is universally valid
+            valid_samples = self.env_layer_to_samples.get(layer, [])
+            for s in valid_samples:
+                if s <= self.S:
+                    mask[layer, s] = True
+        self.register_buffer("layer_sample_mask", mask)
+
+    def _get_occupancy_mask(self, obs: torch.Tensor):
         """
-        Passes the flattened one-hot grid through the CNN.
-        Returns unmasked logits for Layer, Step, and Sample.
+        Reconstructs a (B, L, T) boolean occupancy mask from the flat observation.
+        Returns: occupied (True = cell is filled), empty (True = cell is available)
         """
-        batch_size = obs.shape[0]
-        
-        # Reshape flat vector back to 3D grid: (B, L, T, S+1)
-        x = obs.view(batch_size, self.L, self.T, self.S + 1)
-        
-        # Permute to meet PyTorch Conv2d expectations: (B, Channels, Height, Width) -> (B, S+1, L, T)
+        B = obs.shape[0]
+        obs_grid = obs.view(B, self.L, self.T, self.S + 2)
+        # A cell is occupied if ANY of its S+1 one-hot sample channels is active
+        occupied = obs_grid[:, :, :, :self.S + 1].sum(dim=-1) > 0  # (B, L, T)
+        empty = ~occupied
+        return empty
+
+    def extract_base_features(self, obs: torch.Tensor):
+        B = obs.shape[0]
+        x = obs.view(B, self.L, self.T, self.S + 2)
         x = x.permute(0, 3, 1, 2)
         
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
-        
-        x = x.reshape(batch_size, -1)  # Flatten
-        
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        
-        layer_logits = self.layer_head(x)
-        step_logits = self.step_head(x)
-        sample_logits = self.sample_head(x)
-        
-        return layer_logits, step_logits, sample_logits
+        x = x.contiguous().view(B, -1)
+        return F.relu(self.base_fc(x))
 
-    def act(self, obs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, obs: torch.Tensor, layer_act: Optional[torch.Tensor] = None, step_act: Optional[torch.Tensor] = None):
         """
-        Inference mode for environment rollouts. 
-        Samples actions and applies the strict Layer -> Sample conditioning mask.
+        Calculates Neural logic autoregressively.
+        When PPO is training, passes historical action vectors. When Playing casually, stops early.
         """
-        layer_logits, step_logits, sample_logits = self.forward(obs)
+        base_features = self.extract_base_features(obs)
         
-        # 1. Sample Layer
-        layer_dist = Categorical(logits=layer_logits)
-        layer_action = layer_dist.sample()
+        layer_logits = self.layer_head(base_features)
         
-        # 2. Sample Time Step
-        step_dist = Categorical(logits=step_logits)
-        step_action = step_dist.sample()
-        
-        # 3. Apply Constraint Mask & Sample
-        # Fetch the pre-computed boolean mask for the specific layers chosen by the batch
-        mask = self.layer_sample_mask[layer_action]
-        
-        # Brutally enforce music theory: overwrite invalid sample logits to negative infinity
-        # This mathematically forces their softmax probabilities to exactly 0.0
-        masked_sample_logits = sample_logits.masked_fill(~mask, float('-inf'))
-        
-        sample_dist = Categorical(logits=masked_sample_logits)
-        sample_action = sample_dist.sample()
-        
-        # PPO requires the joint log probability and joint entropy
-        joint_log_prob = layer_dist.log_prob(layer_action) + step_dist.log_prob(step_action) + sample_dist.log_prob(sample_action)
-        joint_entropy = layer_dist.entropy() + step_dist.entropy() + sample_dist.entropy()
-        
-        # Encode back to flat integer for the Gym environment
-        flat_action = (layer_action * self.T * (self.S + 1)) + (step_action * (self.S + 1)) + sample_action
-        
-        return flat_action, joint_log_prob, joint_entropy
+        if layer_act is not None:
+            layer_context = base_features + self.layer_emb(layer_act)
+            step_logits = self.step_head(layer_context)
+            
+            if step_act is not None:
+                step_context = layer_context + self.step_emb(step_act)
+                sample_logits = self.sample_head(step_context)
+                return layer_logits, step_logits, sample_logits
+                
+        return layer_logits, base_features
 
-    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def act(self, obs: torch.Tensor):
         """
-        Called during PPO gradient updates to evaluate old actions against the new policy.
+        Samples a GUARANTEED VALID action using dynamic occupancy masking.
+        Returns (flat_action, log_prob). Runs under no_grad.
         """
-        # Decode the flat integer actions back into coordinates
-        sample_acts = actions % (self.S + 1)
-        remainder = actions // (self.S + 1)
-        step_acts = remainder % self.T
-        layer_acts = remainder // self.T
+        is_unbatched = obs.dim() == 1
+        if is_unbatched:
+            obs = obs.unsqueeze(0)
         
-        layer_logits, step_logits, sample_logits = self.forward(obs)
+        B = obs.shape[0]
         
-        layer_dist = Categorical(logits=layer_logits)
-        step_dist = Categorical(logits=step_logits)
+        with torch.no_grad():
+            empty_mask = self._get_occupancy_mask(obs)  # (B, L, T)
+            
+            # 1. Layer Sampling — mask out layers with zero empty cells
+            layer_has_empty = empty_mask.any(dim=2)  # (B, L)
+            layer_logits, base_features = self.forward(obs)
+            masked_layer_logits = layer_logits.masked_fill(~layer_has_empty, float('-inf'))
+            layer_dist = Categorical(logits=masked_layer_logits)
+            layer_action = layer_dist.sample()
+            
+            # 2. Step Sampling — mask out occupied steps on the chosen layer
+            step_mask = empty_mask[torch.arange(B, device=obs.device), layer_action]  # (B, T)
+            layer_context = base_features + self.layer_emb(layer_action)
+            step_logits = self.step_head(layer_context)
+            masked_step_logits = step_logits.masked_fill(~step_mask, float('-inf'))
+            step_dist = Categorical(logits=masked_step_logits)
+            step_action = step_dist.sample()
+            
+            # 3. Sample Sampling — instrument validity mask (unchanged)
+            step_context = layer_context + self.step_emb(step_action)
+            sample_logits = self.sample_head(step_context)
+            sample_mask = self.layer_sample_mask[layer_action]
+            masked_sample_logits = sample_logits.masked_fill(~sample_mask, float('-inf'))
+            sample_dist = Categorical(logits=masked_sample_logits)
+            sample_action = sample_dist.sample()
+            
+            flat_action = layer_action * (self.T * (self.S + 1)) + step_action * (self.S + 1) + sample_action
+            log_prob = layer_dist.log_prob(layer_action) + step_dist.log_prob(step_action) + sample_dist.log_prob(sample_action)
         
-        # Apply the exact same masking logic used during `act`
-        mask = self.layer_sample_mask[layer_acts]
-        masked_sample_logits = sample_logits.masked_fill(~mask, float('-inf'))
-        sample_dist = Categorical(logits=masked_sample_logits)
+        action_out = flat_action.item() if is_unbatched else flat_action.detach().cpu().numpy()
+        logp_out = log_prob.item() if is_unbatched else log_prob.detach().cpu().numpy()
+        return action_out, logp_out
+
+    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor):
+        """
+        Called exclusively during PPO Training. Evaluates log_prob with dynamic masking.
+        Reconstructs the occupancy mask from each obs to apply identical masks.
+        """
+        B = obs.shape[0]
+        samples = actions % (self.S + 1)
+        rem = actions // (self.S + 1)
+        steps = rem % self.T
+        layers = rem // self.T
         
-        joint_log_prob = layer_dist.log_prob(layer_acts) + step_dist.log_prob(step_acts) + sample_dist.log_prob(sample_acts)
-        joint_entropy = layer_dist.entropy() + step_dist.entropy() + sample_dist.entropy()
+        empty_mask = self._get_occupancy_mask(obs)  # (B, L, T)
         
-        return joint_log_prob, joint_entropy
+        # Full autoregressive forward pass
+        layer_logits, step_logits, sample_logits = self.forward(obs, layer_act=layers, step_act=steps)
+        
+        # Layer masking — identical to act()
+        layer_has_empty = empty_mask.any(dim=2)  # (B, L)
+        masked_layer_logits = layer_logits.masked_fill(~layer_has_empty, float('-inf'))
+        dist_layer = Categorical(logits=masked_layer_logits)
+        
+        # Step masking — per chosen layer
+        step_mask = empty_mask[torch.arange(B, device=obs.device), layers]  # (B, T)
+        masked_step_logits = step_logits.masked_fill(~step_mask, float('-inf'))
+        dist_step = Categorical(logits=masked_step_logits)
+        
+        # Sample masking — instrument validity
+        sample_mask = self.layer_sample_mask[layers]
+        masked_sample_logits = sample_logits.masked_fill(~sample_mask, float('-inf'))
+        dist_sample = Categorical(logits=masked_sample_logits)
+        
+        log_prob_layer = dist_layer.log_prob(layers)
+        log_prob_step = dist_step.log_prob(steps)
+        log_prob_sample = dist_sample.log_prob(samples)
+        
+        log_probs = log_prob_layer + log_prob_step + log_prob_sample
+        entropy = dist_layer.entropy() + dist_step.entropy() + dist_sample.entropy()
+        
+        return log_probs, entropy
