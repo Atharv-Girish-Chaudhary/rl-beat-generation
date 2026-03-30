@@ -1,0 +1,18 @@
+data:
+  path: data/processed/groove_grids.npy
+
+model:
+  d_model: 64
+  num_heads: 4
+  num_blocks: 2
+  d_ff: 128
+
+training:
+  epochs: 15
+  batch_size: 128
+  lr: 3.0e-4
+  val_split: 0.2
+
+outputs:
+  checkpoint_dir: outputs/checkpoints
+  plot_dir: outputs/plots
