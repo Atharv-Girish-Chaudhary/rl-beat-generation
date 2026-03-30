@@ -7,7 +7,7 @@ import pretty_midi
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Project root is two levels up: beat_rl/data/ -> beat_rl/ -> project root
-PROJECT_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
 # Input: raw Groove MIDI files
 INPUT_DIR = os.path.join(PROJECT_ROOT, "data", "raw", "groove")

@@ -74,7 +74,7 @@ def train_ppo(
 
     # Optionally load discriminator
     disc = None
-    disc_path = "outputs/checkpoints/discriminator_best.pth"
+    disc_path = "checkpoints/discriminator_v1.pt"
     if os.path.exists(disc_path):
         print("Loading Pre-trained Discriminator...")
         disc = BeatDiscriminator(num_instruments=L, num_steps=T, d_model=64, num_heads=4, num_blocks=2, d_ff=128).to(device)
