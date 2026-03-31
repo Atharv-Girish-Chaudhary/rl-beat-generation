@@ -13,7 +13,6 @@ build/
 # ===== Environments =====
 .env
 .venv
-env/
 venv/
 
 # ===== Jupyter =====
