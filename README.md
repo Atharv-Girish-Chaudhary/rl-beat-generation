@@ -159,54 +159,77 @@ Click "Generate Beat" to generate a grid, hear the audio, and see evaluation met
 
 ```
 rl-beat-generation/
-├── beat_rl/                          # Installable package
+├── app.py                                # Streamlit interactive demo
+├── beat_rl/                              # Installable package
 │   ├── env/
-│   │   ├── beat_env.py               # BeatGridEnv (Gymnasium, Phase 1 & 2)
-│   │   ├── reward.py                 # compute_reward() — rules + discriminator
-│   │   └── visualize_env.py          # Matplotlib grid heatmap
+│   │   ├── beat_env.py                   # BeatGridEnv (Gymnasium, Phase 1)
+│   │   ├── reward.py                     # compute_reward() — rules + discriminator
+│   │   └── visualize_env.py              # Matplotlib grid heatmap
 │   └── models/
-│       ├── actor.py                  # CNNLayerStepSampleActor (3-head autoregressive)
-│       ├── critic.py                 # CNNBeatCritic (V(s) → scalar)
-│       └── discriminator.py          # BeatDiscriminator (transformer encoder)
+│       ├── actor.py                      # CNNLayerStepSampleActor (3-head autoregressive)
+│       ├── critic.py                     # CNNBeatCritic (V(s) → scalar)
+│       └── discriminator.py              # BeatDiscriminator (transformer encoder)
 │
 ├── scripts/
-│   ├── train_ppo.py                  # PPO training loop (Phase 1)
-│   ├── train_discriminator.py        # Discriminator pre-training
-│   ├── process_groove.py             # Groove MIDI → (N, L, T) binary grids
-│   ├── download_samples.py           # Freesound API sample downloader
-│   └── generate_audio.py             # Actor inference → WAV rendering
+│   ├── train_ppo.py                      # PPO training loop (Phase 1)
+│   ├── train_discriminator.py            # Discriminator pre-training
+│   ├── process_groove.py                 # Groove MIDI → (N, L, T) binary grids
+│   ├── download_samples.py               # Freesound API sample downloader
+│   └── generate_audio.py                 # Actor inference → WAV rendering
 │
 ├── evaluation/
-│   └── evaluate.py                   # N-episode eval: disc score, rule reward, density, groove
+│   └── evaluate.py                       # N-episode eval: rule reward, density, groove
 │
 ├── notebooks/
-│   └── train_ppo_colab.ipynb         # Colab training notebook (T4/A100)
+│   ├── train_ppo_colab.ipynb             # Colab PPO training notebook (T4/A100)
+│   ├── train_discriminator_colab.ipynb   # Colab discriminator training notebook
+│   ├── discriminator_model.ipynb         # Discriminator architecture exploration
+│   └── discriminator_notes.ipynb         # Discriminator research notes
 │
 ├── data/
-│   ├── processed/groove_grids.npy    # Pre-processed Groove MIDI grids
-│   └── samples/                      # Freesound WAV samples
+│   ├── processed/groove_grids.npy        # Pre-processed Groove MIDI grids
+│   ├── raw/groove/                       # Groove MIDI dataset
+│   └── samples/                          # Freesound WAV samples
 │       ├── kick/   (30 samples)
 │       ├── snare/  (30 samples)
 │       ├── hihat/  (25 samples)
 │       ├── clap/   (20 samples)
 │       ├── bass/, melody/, pad/, fx/
-│       └── {layer}/metadata.json     # ID → filename mapping
+│       └── {layer}/metadata.json         # ID → filename mapping
 │
 ├── outputs/
 │   ├── checkpoints/
-│   │   ├── actor_best.pth            # Best Phase 1 actor weights
-│   │   ├── critic_best.pth           # Best Phase 1 critic weights
-│   │   └── discriminator_v1.pt       # Pre-trained discriminator
-│   ├── plots/                        # Training curves, grid visualizations
-│   └── beat_sample.wav               # Most recent generated beat
+│   │   ├── actor_best.pth                # Best Phase 1 actor weights (v3, epoch 486)
+│   │   ├── actor_best_v3.pth             # v3 actor checkpoint copy
+│   │   ├── critic_best.pth               # Best Phase 1 critic weights
+│   │   ├── critic_best_v3.pth            # v3 critic checkpoint copy
+│   │   ├── discriminator_phase1_v2.pt    # Discriminator v2 (95.12% val accuracy)
+│   │   └── discriminator_v1.pt           # Discriminator v1
+│   ├── plots/
+│   │   ├── beat_grid_epoch_*.png         # Per-epoch beat grid snapshots
+│   │   ├── first_vs_best_comparison.png  # Epoch 0 vs best checkpoint comparison
+│   │   └── ppo_training_plot.png         # Training reward curve
+│   ├── beat_sample.wav                   # Most recent generated beat
+│   └── evaluation_report.json           # Latest evaluation results (20 episodes)
+│
+├── tests/                                # 16 unit + integration tests (all pass)
+│   ├── test_actor.py
+│   ├── test_beat_env.py
+│   ├── test_critic.py
+│   ├── test_discriminator.py
+│   ├── test_download_samples.py
+│   ├── test_integration.py
+│   ├── test_process_groove.py
+│   ├── test_reward.py
+│   └── conftest.py
 │
 ├── configs/
 │   ├── ppo_phase1.yaml
 │   └── discriminator.yaml
-├── tests/                            # 16 unit + integration tests (all pass)
 ├── docs/rl_beat_gen_level1_guide.md
-├── setup.py
-└── requirements.txt
+├── environment.yml
+├── requirements.txt
+└── setup.py
 ```
 
 ---
