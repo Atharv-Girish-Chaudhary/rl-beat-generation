@@ -1,3 +1,4 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from beat_rl.env.beat_env import BeatGridEnv
@@ -21,7 +22,7 @@ def plot_beat_grid(grid: np.ndarray, phase: int = 2):
     fig, ax = plt.subplots(figsize=(10, L * 0.8))
     
     # Setup colormap: 0 (silence) is white, 1-15 get distinct colors
-    cmap = plt.cm.get_cmap('viridis').copy()
+    cmap = matplotlib.colormaps['viridis'].copy()
     cmap.set_under('white')
     
     # Plot grid. vmin=0.1 forces the 0s into the 'under' color (white)
