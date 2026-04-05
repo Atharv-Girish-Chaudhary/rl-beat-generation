@@ -1,325 +1,256 @@
-<!-- markdownlint-disable MD013 -->
-<!-- pymarkdown: disable MD013 -->
+# RL Beat Generation
 
-# RL-Based Beat Generation
+A PPO agent that composes drum beats by filling a 4×16 grid cell-by-cell, guided by a hybrid reward of hand-crafted musical rules and a transformer discriminator trained on real performances.
 
-A two-level reinforcement learning system for automated beat generation. The agent learns to compose structurally coherent drum and melody arrangements by combining hand-crafted musical rules with a learned discriminator reward signal.
-
-## CS 5180: Reinforcement Learning — Spring 2026, Northeastern University
-
-**Team:** Atharv · Taha Ucar · Yixun Li
-**Instructor:** Professor Yifan Hu
+**CS 5180 Reinforcement Learning · Northeastern University · Spring 2026**
+Atharv Chaudhary · Taha Ucar · Yixun Li
 
 ---
 
-## Overview
+## Demo
 
-This project frames music composition as a sequential decision-making problem. A PPO agent populates a beat grid one cell at a time, guided by a hybrid reward function that balances rule-based musical constraints with a transformer discriminator trained on real drum performances.
+![First vs Best epoch comparison](outputs/plots/first_vs_best_comparison.png)
 
-### Architecture
+*Left: agent at epoch 0. Right: best checkpoint (epoch 209, reward 0.779). Blue = active cell, number = sample ID chosen.*
 
-```text
-┌─────────────────────────────────────────────────────┐
-│                    PPO Agent                         │
-│  ┌─────────────┐    ┌──────────────┐                │
-│  │ CNN Actor    │    │ CNN Critic   │                │
-│  │ (3 heads:   │    │ (V(s) →      │                │
-│  │  layer,     │    │  scalar)     │                │
-│  │  step,      │    └──────────────┘                │
-│  │  sample)    │                                     │
-│  └──────┬──────┘                                     │
-│         │ action: (layer, step, sample)              │
-└─────────┼───────────────────────────────────────────┘
-          ▼
-┌─────────────────────────────────────────────────────┐
-│              Beat Grid Environment                   │
-│  8×16 grid (L layers × T time steps)                │
-│  One-hot encoded state → flattened observation       │
-│  Episode: fill all cells → compute reward            │
-└─────────┬───────────────────────────────────────────┘
-          ▼
-┌─────────────────────────────────────────────────────┐
-│               Hybrid Reward                          │
-│  R = α · R_rules + β · R_discriminator              │
-│                                                      │
-│  Rule-based:          Discriminator:                 │
-│  • Rhythmic structure  • Transformer encoder         │
-│  • Density control     • Trained on Groove MIDI      │
-│  • Repetition w/       • P(real) as reward signal    │
-│    variation                                         │
-└─────────────────────────────────────────────────────┘
+The agent also renders beats to audio. Running `scripts/generate_audio.py` produces a WAV file by
+loading the trained actor, running one inference episode, and mixing the instrument samples from
+`data/samples/` at 16th-note intervals. A 4-bar loop at 120 BPM is saved to `outputs/beat_sample.wav`.
+
+---
+
+## Architecture
+
+The system frames beat composition as a sequential MDP over a 4×16 grid (4 instrument layers × 16
+16th-note time steps). The agent fills one cell per step until all 64 cells are assigned.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          PPO Agent                                   │
+│                                                                       │
+│   Observation: (L×T×(S+2),) = (1088,) float32                       │
+│     • Channels 0–14: one-hot sample index per cell                   │
+│     • Channel 15:    silence flag                                     │
+│     • Channel 16:    step_count / max_steps  (temporal progress)     │
+│                                                                       │
+│   ┌──────────────────────────────┐   ┌───────────────────────────┐   │
+│   │       CNNLayerStepSampleActor│   │       CNNBeatCritic        │   │
+│   │                              │   │                             │   │
+│   │  Conv2d(17,32) → ReLU        │   │  Conv2d(17,32) → ReLU      │   │
+│   │  Conv2d(32,64) → ReLU        │   │  Conv2d(32,64) → ReLU      │   │
+│   │  FC(64·L·T, 128) base        │   │  FC(64·L·T, 128) → ReLU    │   │
+│   │                              │   │  FC(128, 1)  →  V(s)        │   │
+│   │  ① layer_head  → L logits   │   └───────────────────────────┘   │
+│   │  ② step_head   → T logits   │                                    │
+│   │     (+ layer embedding)      │                                    │
+│   │  ③ sample_head → S+1 logits │                                    │
+│   │     (+ step embedding)       │                                    │
+│   │                              │                                    │
+│   │  Dynamic masking:            │                                    │
+│   │  • Occupied cells blocked    │                                    │
+│   │  • Wrong-instrument samples  │                                    │
+│   │    blocked per layer         │                                    │
+│   └──────────────────────────────┘                                   │
+└─────────────────────────────────────────────────────────────────────┘
+                              │ action: flat int → (layer, step, sample)
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                       BeatGridEnv (Phase 1)                          │
+│  Grid: (4, 16) int64   −1=empty, 0=silence, 1–15=sample index       │
+│  Episode: fill all 64 cells, then terminate                          │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Hybrid Reward                                 │
+│                                                                       │
+│   R = α · R_rules  +  β · R_disc                                     │
+│       (0.9)              (0.1)    ← Phase 1 weights                  │
+│                                                                       │
+│   R_rules  (terminal, [0,1]):                                        │
+│     +0.1  kick on step 0                                             │
+│     +0.1  kick on step 8                                             │
+│     +0.1  snare/clap on step 4                                       │
+│     +0.1  snare/clap on step 12                                       │
+│     +0.2  hi-hat count in [4, 12]                                    │
+│     +0.4  Jaccard similarity (first vs second half) in [0.6, 0.95)  │
+│     −0.01 per off-beat snare/clap hit                                │
+│                                                                       │
+│   R_disc  (terminal, [0,1]):                                         │
+│     sigmoid( BeatDiscriminator(binary_grid) )                        │
+│                                                                       │
+│   R_intermediate:  +0.05 for anchor/backbeat hits as they are placed │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                       BeatDiscriminator                               │
+│  Input: (B, L, T) binary hit grid                                    │
+│  token_embed: Linear(L, 64)   +   pos_embed: Embedding(T, 64)       │
+│  2× EncoderBlock (MultiHeadAttention(4 heads) + LayerNorm + FFN)    │
+│  Classifier: Linear(64, 32) → ReLU → Linear(32, 1) → logit          │
+│  Pre-trained on Groove MIDI (real) vs synthetic negatives (fake)     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### What the Agent Learns
-
-The agent builds a beat grid step by step — like a producer filling in a drum machine. Each row is an instrument (kick, snare, hi-hat, etc.), each column is a 16th-note time step in one bar. At every step, the agent picks one cell to fill and which sound to place there.
-
-A successful beat has:
-
-- Kicks on strong beats (steps 0, 4, 8, 12)
-- Snares on backbeats (steps 4, 12)
-- Hi-hats filling in-between steps
-- Appropriate density (30–60% of cells active)
-- Repetition with variation between half-bars (Jaccard similarity 0.7–0.99)
+**Action space factoring.** Instead of sampling from L·T·(S+1) = 1,024 actions flat, the actor
+decomposes each decision into three sequential steps — layer → step → sample — reducing effective
+branching and letting the architecture encode instrument hierarchy explicitly.
 
 ---
 
-## Curriculum Learning
+## Results
 
-Training uses a two-phase curriculum to manage complexity:
+Evaluated over 20 episodes using `evaluation/evaluate.py` with the Phase 1 checkpoint.
 
-| | Phase 1 | Phase 2 |
-| --- | --- | --- |
-| **Grid** | 4×16 (drums only) | 8×16 (drums + bass, melody, pad, fx) |
-| **Layers** | Kick, Snare, Hi-hat, Clap | + Bass, Melody, Pad, FX |
-| **Reward weights** | α=0.9, β=0.1 (mostly rules) | α=0.5, β=0.5 (balanced) |
-| **Transition** | — | Rolling mean rule score > 0.7 |
-| **Timesteps** | 2M | 5M |
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Best training reward | **0.779** | Epoch 209 / 250 |
+| Rule reward (mean ± std) | **0.821 ± 0.13** | Across 20 eval episodes |
+| Beat density | **0.667 ± 0.03** | Fraction of non-silent cells |
+| Groove consistency | **0.328** | Hits on strong beats (steps 0,4,8,12) / total hits |
+| Kick density | **0.991** | Near-full — kick layer almost always active |
+| Snare density | **0.356** | Appropriately sparse |
+| Hi-hat density | **0.509** | Moderate fill pattern |
+| Clap density | **0.216** | Sparse and realistic |
+| Discriminator score | **0.044** | Limited by Phase 1 discriminator checkpoint |
 
-Phase 2 inherits Phase 1 weights with extra layer channels initialized to zero. 30% Phase 1 grids are included in discriminator batches to prevent catastrophic forgetting.
+The discriminator score is low by design: Phase 1 training uses `α=0.9, β=0.1`, so the rule reward
+dominates and the discriminator receives insufficient gradient signal to shape the policy strongly.
+The rule score of 0.821 confirms the agent has internalized the kick/snare/hihat anchoring rules.
 
 ---
 
 ## Project Structure
 
-```text
+```
 rl-beat-generation/
-├── data/
-│   ├── groove_grids.npy             # (42133, 4, 16) drum grids
-│   ├── slakh_grids.npy              # (2450, 8, 16) multi-instrument grids
-│   ├── musdb_spectrograms.npy       # Phase 3 spectrograms (corrupted)
-│   ├── groove_midi/                 # Raw Groove MIDI dataset
-│   ├── babyslakh/                   # Raw BabySlakh dataset
-│   ├── samples/                     # Raw Freesound samples
-│   │   ├── kick/
-│   │   ├── snare/
-│   │   ├── hihat/
-│   │   ├── clap/
-│   │   ├── bass/
-│   │   ├── melody/
-│   │   ├── pad/
-│   │   └── fx/
-│   └── samples_processed/           # Normalized audio samples
+├── beat_rl/                          # Installable package
+│   ├── env/
+│   │   ├── beat_env.py               # BeatGridEnv (Gymnasium, Phase 1 & 2)
+│   │   ├── reward.py                 # compute_reward() — rules + discriminator
+│   │   └── visualize_env.py          # Matplotlib grid heatmap
+│   └── models/
+│       ├── actor.py                  # CNNLayerStepSampleActor (3-head autoregressive)
+│       ├── critic.py                 # CNNBeatCritic (V(s) → scalar)
+│       └── discriminator.py          # BeatDiscriminator (transformer encoder)
 │
-├── data_processing/
-│   ├── download_samples.py          # Freesound API sample downloader
-│   └── process_groove.py            # Groove MIDI → grid converter
+├── scripts/
+│   ├── train_ppo.py                  # PPO training loop (Phase 1)
+│   ├── train_discriminator.py        # Discriminator pre-training
+│   ├── process_groove.py             # Groove MIDI → (N, L, T) binary grids
+│   ├── download_samples.py           # Freesound API sample downloader
+│   └── generate_audio.py             # Actor inference → WAV rendering
 │
-├── grid_env/
-│   ├── __init__.py
-│   ├── beat_env.py                  # Gymnasium environment (Phase 1 & 2)
-│   ├── reward.py                    # Rule-based + discriminator rewards
-│   └── visualize_env.py             # Matplotlib grid visualizer
-│
-├── models/
-│   ├── __init__.py
-│   ├── actor.py                     # CNN policy network (factored 3-head)
-│   ├── critic.py                    # CNN value network
-│   └── discriminator.py             # Transformer encoder discriminator
-│
-├── training/                        # PPO training loop (TODO)
-│
-├── evaluation/                      # Metrics & audio rendering (TODO)
-│
-├── test/
-│   ├── test_env.py                  # Environment sanity checks
-│   ├── test_reward.py               # Reward function tests
-│   ├── test_actor.py                # Actor network tests
-│   └── test_critic.py               # Critic network tests
+├── evaluation/
+│   └── evaluate.py                   # N-episode eval: disc score, rule reward, density, groove
 │
 ├── notebooks/
-│   ├── discriminator_model.ipynb    # Discriminator training notebook
-│   └── discriminator_notes.ipynb    # Discriminator concepts & notes
+│   └── train_ppo_colab.ipynb         # Colab training notebook (T4/A100)
 │
-├── checkpoints/
-│   └── discriminator_v1.pt          # Trained discriminator weights
+├── data/
+│   ├── processed/groove_grids.npy    # Pre-processed Groove MIDI grids
+│   └── samples/                      # Freesound WAV samples
+│       ├── kick/   (30 samples)
+│       ├── snare/  (30 samples)
+│       ├── hihat/  (25 samples)
+│       ├── clap/   (20 samples)
+│       ├── bass/, melody/, pad/, fx/
+│       └── {layer}/metadata.json     # ID → filename mapping
 │
-├── configs/                         # Hyperparameters (TODO)
-├── logs/                            # TensorBoard logs
-├── docs/                            # Documentation
+├── outputs/
+│   ├── checkpoints/
+│   │   ├── actor_best.pth            # Best Phase 1 actor weights
+│   │   ├── critic_best.pth           # Best Phase 1 critic weights
+│   │   └── discriminator_v1.pt       # Pre-trained discriminator
+│   ├── plots/                        # Training curves, grid visualizations
+│   └── beat_sample.wav               # Most recent generated beat
 │
-├── environment.yml                  # Conda environment spec
-├── requirements.txt                 # pip dependencies
-└── README.md
+├── configs/
+│   ├── ppo_phase1.yaml
+│   └── discriminator.yaml
+├── tests/                            # 16 unit + integration tests (all pass)
+├── docs/rl_beat_gen_level1_guide.md
+├── setup.py
+└── requirements.txt
 ```
 
 ---
 
 ## Setup
 
-### Requirements
-
-- Python 3.10
-- CUDA-compatible GPU (8+ GB VRAM recommended)
-- Freesound API key ([register here](https://freesound.org/apiv2/apply))
-
-### Installation
+**Requirements:** Python 3.10, CUDA GPU (recommended), Freesound API key for downloading new samples.
 
 ```bash
-# Create virtual environment
-python3.10 -m venv beat_env
-source beat_env/bin/activate
+git clone https://github.com/Atharv-Girish-Chaudhary/rl-beat-generation.git
+cd rl-beat-generation
 
-# Install dependencies
+conda create -n beat_env python=3.10
+conda activate beat_env
+
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install gymnasium numpy pretty_midi requests tqdm matplotlib tensorboard
-pip install stable-baselines3[extra]
-
-# Verify GPU access
-python -c "import torch; print(torch.cuda.is_available())"
+pip install -e .
 ```
+
+Checkpoints and processed data are committed to the repo — no data pipeline step is required to
+run inference or evaluation.
 
 ---
 
 ## Usage
 
-### Step-by-step (run in this exact order)
-
-#### 1. Download sound samples
+**Retrain from scratch** (pre-trained discriminator already included):
 
 ```bash
-# Set your Freesound API key in data/download_samples.py first
-python data/download_samples.py
+python scripts/train_ppo.py
+# Saves actor_best.pth, critic_best.pth to outputs/checkpoints/
+# Saves training curves and grid PNGs to outputs/plots/
 ```
 
-Downloads ~15 WAV files per layer × 8 layers = ~120 samples.
+**Generate a beat:**
 
-#### 2. Download and process Groove MIDI dataset
+```bash
+python scripts/generate_audio.py --seed 42 --bpm 120 --n_beats 4
+# Writes outputs/beat_sample.wav
+```
+
+**Evaluate the checkpoint:**
+
+```bash
+python evaluation/evaluate.py --n_episodes 20
+# Prints summary table, writes outputs/evaluation_report.json
+```
+
+**Retrain the discriminator** (requires Groove MIDI dataset):
 
 ```bash
 wget https://storage.googleapis.com/magentadata/datasets/groove/groove-v1.0.0-midionly.zip
 unzip groove-v1.0.0-midionly.zip -d data/raw/groove
-python data/process_groove.py
+python scripts/process_groove.py          # → data/processed/groove_grids.npy
+python scripts/train_discriminator.py     # → outputs/checkpoints/discriminator_best.pth
 ```
 
-Produces `groove_grids.npy` — approximately 1,000–1,100 real drum grids.
+**Colab training** (recommended for GPU access):
 
-#### 3. Pre-train the discriminator
-
-```bash
-python training/pretrain_disc.py
-```
-
-Trains the transformer discriminator on real vs. random grids. **Do not proceed until validation accuracy > 0.75.**
-
-#### 4. Train Phase 1 (drums only)
-
-```bash
-python -m training.train_ppo --phase 1
-```
-
-Monitor with TensorBoard:
-
-```bash
-tensorboard --logdir logs/
-```
-
-#### 5. Check Phase 1 readiness
-
-```bash
-python evaluation/check_phase1_ready.py
-```
-
-Transition when mean rule score > 0.7 over 100 episodes.
-
-#### 6. Train Phase 2 (full grid)
-
-```bash
-python -m training.train_ppo --phase 2
-```
-
-#### 7. Evaluate
-
-```bash
-python evaluation/evaluate.py
-python evaluation/render_to_audio.py
-```
+Open `notebooks/train_ppo_colab.ipynb`. Set runtime to T4 GPU. All config is in Cell 3.
 
 ---
 
-## Technical Details
+## Team
 
-### MDP Formulation
-
-| Component | Definition |
-| --- | --- |
-| **State** | Partially-filled beat grid, one-hot encoded: shape (L, T, S+1) |
-| **Action** | Tuple (layer, step, sample) — flat integer decoded at inference |
-| **Reward** | Terminal: α·R_rules + β·R_disc; Intermediate: small compatibility hint |
-| **Episode** | Start empty → fill all L×T cells → terminate |
-
-**Action space:** L × T × (S+1) = up to 2,688 discrete actions per step. Sample selection is masked based on the chosen layer (kick samples can only go on the kick layer).
-
-### Key Hyperparameters (Phase 1)
-
-| Parameter | Value | Purpose |
-| --- | --- | --- |
-| `n_steps` | 2,048 | Steps per rollout buffer |
-| `batch_size` | 64 | PPO mini-batch size |
-| `learning_rate` | 3e-4 | Adam optimizer LR |
-| `gamma` | 0.99 | Discount factor |
-| `gae_lambda` | 0.95 | GAE bias-variance tradeoff |
-| `clip_range` | 0.2 | PPO clipping ε |
-| `ent_coef` | 0.01 | Entropy bonus |
-
-### Discriminator
-
-- Transformer encoder (d_model=64, 4 heads, 2 layers)
-- Pre-trained on Groove MIDI dataset (binary cross-entropy, label smoothing ε=0.1)
-- Updated every 100 episodes during RL training with a historical pool of 500 agent grids
-- Three negative example types: random grids, shuffled layers, agent outputs
-
-### Reward Sub-Components
-
-| Sub-Reward | Target | Metric |
-| --- | --- | --- |
-| Rhythmic structure | Kicks on strong beats, snares on backbeats | Fraction of correct placements |
-| Density control | 30–60% of cells active | Linear penalty outside range |
-| Repetition w/ variation | Half-bar Jaccard similarity in [0.7, 0.99) | 1.0 in range, linear ramp outside |
-
----
-
-## Evaluation Metrics
-
-| Metric | Target | Description |
-| --- | --- | --- |
-| Discriminator score | > 0.70 | P(real) from held-out discriminator |
-| Rule-based score | > 0.70 | Composite of rhythmic, density, repetition |
-| Novelty (Hamming NN) | > 0.15 | Distance from nearest training example |
-| Human listening test | > 3.5/5 | Blind Likert-scale ratings |
-
----
-
-## Datasets
-
-- **[Groove MIDI Dataset](https://magenta.tensorflow.org/datasets/groove)** — 13.6 hours, ~1,150 MIDI files, 22,000+ measures of professional drumming from 10 drummers. Used to train the discriminator.
-- **[Freesound](https://freesound.org/)** — CC0-licensed one-shot WAV samples for the agent's sound library.
-
----
-
-## Team Responsibilities
-
-| Member | Area |
-| --- | --- |
-| **Atharv** | RL training pipeline, discriminator |
-| **Taha** | Environment, reward system |
-| **Yixun** | Data pipeline, audio processing |
-
----
-
-## Compute
-
-- **Google Colab Pro** — Primary GPU training environment
-- **Northeastern Explorer HPC** — NVIDIA H200 GPUs for longer training runs
+| Member | Contribution |
+|--------|-------------|
+| **Atharv Chaudhary** | PPO training loop, discriminator architecture and pre-training |
+| **Taha Ucar** | Gymnasium environment, reward function, action masking |
+| **Yixun Li** | Data pipeline (Groove MIDI, Freesound), audio rendering |
 
 ---
 
 ## References
 
-- Schulman et al., "Proximal Policy Optimization Algorithms" (2017)
-- Gillick et al., "Learning to Groove with Inverse Sequence Transformations" (2019) — Groove MIDI Dataset
-- Haarnoja et al., "Soft Actor-Critic" (2018)
-- Stable Baselines3 — [Documentation](https://stable-baselines3.readthedocs.io/)
+- Schulman et al., [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347) (2017)
+- Gillick et al., [Learning to Groove with Inverse Sequence Transformations](https://arxiv.org/abs/1905.06118) (2019) — Groove MIDI Dataset
+- Vaswani et al., [Attention Is All You Need](https://arxiv.org/abs/1706.03762) (2017)
 
 ---
 
