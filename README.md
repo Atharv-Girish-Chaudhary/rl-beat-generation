@@ -129,20 +129,29 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` 
 
 ---
 
+## Demo
+
+### Streamlit App
+Run the interactive demo locally:
+```bash
+conda activate rl-beats
+pip install streamlit
+streamlit run app.py
+```
+
+Opens at `localhost:8501`. Controls:
+- **BPM** — tempo (60–180)
+- **Seed** — reproducible beat generation
+- **N Bars** — loop length (1–8)
+
+Click "Generate Beat" to generate a grid, hear the audio, and see evaluation metrics live.
+
+---
+
 ## Current Status
 
-**Completed ✅**
-
-- PPO training pipeline — v3 checkpoint (Phase 1, 4×16 grid, 500 epochs)
-- Discriminator v2 — 95.12% val accuracy
-- PPO retraining against `discriminator_phase1_v2` — best reward 0.942 @ epoch 486
-- Audio generation (`generate_audio.py`)
-- Evaluation metrics (`evaluation/evaluate.py`)
-
-**Not Started ❌**
-
-- SAC agent (Level 2 audio effects)
-- Phase 2 training (8×16 grid)
+- Phase 1 complete — PPO agent trained, audio generation working, Streamlit demo live
+- Phase 2 (8×16 grid) and SAC agent (audio FX) are out of scope for this submission
 
 ---
 
