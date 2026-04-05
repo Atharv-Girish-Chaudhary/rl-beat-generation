@@ -98,6 +98,13 @@ class NegativeGenerator:
         density = np.random.uniform(0.0, 0.1) if np.random.rand() > 0.5 else np.random.uniform(0.8, 1.0)
         return (np.random.rand(n_inst, n_steps) < density).astype(np.float32)
 
+    @staticmethod
+    def silent_grid(n_inst=4, n_steps=16):
+        """All-zero grid — a negative the discriminator must not confuse with real.
+        Real training data contains ~5.9% all-zero grids (label=1), so this
+        negative teaches the model that silence paired with no structure is fake."""
+        return np.zeros((n_inst, n_steps), dtype=np.float32)
+
 
 class BeatDataset(Dataset):
     def __init__(self, real_grids, agent_pool=None, num_samples=5000):

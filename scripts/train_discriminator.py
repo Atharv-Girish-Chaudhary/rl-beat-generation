@@ -27,21 +27,25 @@ class _Phase1Dataset(BeatDataset):
             return torch.tensor(self.real_grids[i].astype(np.float32)), torch.tensor([1.0])
 
         neg_type = np.random.choice(
-            ["random", "shuffled", "density", "agent"],
-            p=[0.3, 0.3, 0.2, 0.2]
+            ["random", "shuffled", "density", "silent", "agent"],
+            p=[0.20,   0.15,      0.30,     0.20,    0.15]
         )
 
         if neg_type == "agent" and len(self.agent_pool) > 0:
             grid = self.agent_pool[np.random.randint(len(self.agent_pool))]
+        elif neg_type == "agent":
+            # Pool is empty (pre-training) — fall back to density_wrong, not random.
+            # density_wrong produces clearly out-of-range grids; random overlaps 85%
+            # with the real density distribution and is the weakest negative type.
+            grid = self.neg_gen.density_wrong_grid(n_inst, n_steps)
         elif neg_type == "shuffled":
             grid = self.neg_gen.shuffled_grid(
                 self.real_grids[np.random.randint(len(self.real_grids))]
             )
         elif neg_type == "density":
-            density = (np.random.uniform(0.0, 0.1)
-                       if np.random.rand() > 0.5
-                       else np.random.uniform(0.8, 1.0))
-            grid = (np.random.rand(n_inst, n_steps) < density).astype(np.float32)
+            grid = self.neg_gen.density_wrong_grid(n_inst, n_steps)
+        elif neg_type == "silent":
+            grid = self.neg_gen.silent_grid(n_inst, n_steps)
         else:  # random
             grid = (np.random.rand(n_inst, n_steps)
                     < np.random.uniform(0.1, 0.7)).astype(np.float32)
@@ -78,6 +82,17 @@ def train_discriminator(
     # on the same 4×16 representation the PPO agent generates.
     real_grids = real_grids[:, :4, :]
     print(f"Phase 1 slice shape: {real_grids.shape}  (kept rows 0–3 of 8)")
+
+    # Remove all-zero grids from the positive set.
+    # The raw data contains ~1345 silent grids (5.86%) which would be trained
+    # as label=1 (real).  That directly causes the discriminator to score silence
+    # highly at inference.  We add silence back explicitly as a negative instead.
+    n_before = len(real_grids)
+    real_grids = real_grids[real_grids.sum(axis=(1, 2)) > 0]
+    n_removed = n_before - len(real_grids)
+    print(f"Removed {n_removed} all-zero grids from positives  "
+          f"({n_removed/n_before*100:.2f}% of raw slice)  "
+          f"→ {len(real_grids)} clean real grids")
     
     # 2. Build PyTorch Dataset Integrator
     num_samples = len(real_grids) * 2  # Exactly 50% real human, 50% synthetic fake garbage
