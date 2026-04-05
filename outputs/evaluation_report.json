@@ -1,0 +1,107 @@
+{
+  "config": {
+    "n_episodes": 5,
+    "seed": null,
+    "checkpoint_dir": "/Users/atharvchaudhary/PERSONAL/Public Projects/rl-beat-generation/outputs/checkpoints",
+    "actor": "/Users/atharvchaudhary/PERSONAL/Public Projects/rl-beat-generation/outputs/checkpoints/actor_best.pth",
+    "discriminator": "/Users/atharvchaudhary/PERSONAL/Public Projects/rl-beat-generation/outputs/checkpoints/discriminator_phase1_v2.pt"
+  },
+  "summary": {
+    "discriminator_score": {
+      "mean": 0.0003,
+      "std": 0.0001
+    },
+    "rule_reward": {
+      "mean": 0.988,
+      "std": 0.0075
+    },
+    "beat_density": {
+      "mean": 0.45,
+      "std": 0.023
+    },
+    "groove_consistency": {
+      "mean": 0.3889,
+      "std": 0.0265
+    },
+    "per_layer_density": {
+      "kick": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "snare": {
+        "mean": 0.2,
+        "std": 0.0468
+      },
+      "hihat": {
+        "mean": 0.475,
+        "std": 0.05
+      },
+      "clap": {
+        "mean": 0.125,
+        "std": 0.0
+      }
+    }
+  },
+  "episodes": [
+    {
+      "discriminator_score": 0.0001716158731142059,
+      "rule_reward": 0.9800000000000001,
+      "beat_density": 0.46875,
+      "groove_consistency": 0.43333333333333335,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.25,
+        "hihat": 0.5,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.000612065545283258,
+      "rule_reward": 1.0,
+      "beat_density": 0.421875,
+      "groove_consistency": 0.37037037037037035,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.125,
+        "hihat": 0.4375,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.00035984962596558034,
+      "rule_reward": 0.9900000000000001,
+      "beat_density": 0.4375,
+      "groove_consistency": 0.39285714285714285,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.1875,
+        "hihat": 0.4375,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.0003442727611400187,
+      "rule_reward": 0.9800000000000001,
+      "beat_density": 0.484375,
+      "groove_consistency": 0.3548387096774194,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.25,
+        "hihat": 0.5625,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.0002535612147767097,
+      "rule_reward": 0.9900000000000001,
+      "beat_density": 0.4375,
+      "groove_consistency": 0.39285714285714285,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.1875,
+        "hihat": 0.4375,
+        "clap": 0.125
+      }
+    }
+  ]
+}

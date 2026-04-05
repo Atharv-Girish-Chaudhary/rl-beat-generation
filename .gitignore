@@ -49,9 +49,9 @@ data/samples_processed/
 *.npz
 
 # ===== Project: Outputs =====
-outputs/
+# outputs
 logs/
-
+outputs/checkpoints/
 # ===== Project: Model Weights =====
 *.pt
 *.pth
