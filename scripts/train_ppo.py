@@ -79,10 +79,10 @@ def train_ppo(
 
     # Optionally load discriminator
     disc = None
-    disc_path = _REPO_ROOT / "outputs" / "checkpoints" / "discriminator_v1.pt"
+    disc_path = _REPO_ROOT / "outputs" / "checkpoints" / "discriminator_phase1_v2.pt"
     if disc_path.exists():
         print("Loading Pre-trained Discriminator...")
-        disc = BeatDiscriminator(num_instruments=L, num_steps=T, d_model=64, num_heads=4, num_blocks=2, d_ff=256).to(device)
+        disc = BeatDiscriminator(num_instruments=L, num_steps=T, d_model=64, num_heads=4, num_blocks=2, d_ff=128).to(device)
         disc.load_state_dict(torch.load(str(disc_path), map_location=device))
         disc.eval()
 

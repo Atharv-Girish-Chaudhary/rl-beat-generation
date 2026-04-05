@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,6 +8,45 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from beat_rl.models import BeatDiscriminator, BeatDataset
+
+
+class _Phase1Dataset(BeatDataset):
+    """
+    BeatDataset subclass for Phase 1 (4-instrument) training.
+
+    The parent class's NegativeGenerator.random_grid() and density_wrong_grid()
+    default to n_inst=8, which causes a shape mismatch when real_grids have been
+    sliced to 4 instruments.  This subclass overrides __getitem__ to derive the
+    instrument count directly from the sliced real_grids array.
+    """
+    def __getitem__(self, idx):
+        n_inst, n_steps = self.real_grids.shape[1], self.real_grids.shape[2]
+
+        if np.random.rand() < 0.5:
+            i = np.random.randint(len(self.real_grids))
+            return torch.tensor(self.real_grids[i].astype(np.float32)), torch.tensor([1.0])
+
+        neg_type = np.random.choice(
+            ["random", "shuffled", "density", "agent"],
+            p=[0.3, 0.3, 0.2, 0.2]
+        )
+
+        if neg_type == "agent" and len(self.agent_pool) > 0:
+            grid = self.agent_pool[np.random.randint(len(self.agent_pool))]
+        elif neg_type == "shuffled":
+            grid = self.neg_gen.shuffled_grid(
+                self.real_grids[np.random.randint(len(self.real_grids))]
+            )
+        elif neg_type == "density":
+            density = (np.random.uniform(0.0, 0.1)
+                       if np.random.rand() > 0.5
+                       else np.random.uniform(0.8, 1.0))
+            grid = (np.random.rand(n_inst, n_steps) < density).astype(np.float32)
+        else:  # random
+            grid = (np.random.rand(n_inst, n_steps)
+                    < np.random.uniform(0.1, 0.7)).astype(np.float32)
+
+        return torch.tensor(grid.astype(np.float32)), torch.tensor([0.0])
 
 def train_discriminator(
     data_path: str = "data/processed/groove_grids.npy",
@@ -31,11 +71,17 @@ def train_discriminator(
         
     print(f"Harvesting Real Human Groove Data from {data_path}...")
     real_grids = np.load(data_path)
-    print(f"Mathematical Tensor Loaded Shape: {real_grids.shape}")
+    print(f"Raw tensor shape: {real_grids.shape}")
+
+    # Groove MIDI grids have 8 instrument rows; Phase 1 uses only the first 4
+    # (kick, snare, hi-hat, clap).  Slice here so the discriminator is trained
+    # on the same 4×16 representation the PPO agent generates.
+    real_grids = real_grids[:, :4, :]
+    print(f"Phase 1 slice shape: {real_grids.shape}  (kept rows 0–3 of 8)")
     
     # 2. Build PyTorch Dataset Integrator
-    num_samples = len(real_grids) * 2 # Exactly 50% real human, 50% synthetic fake garbage
-    dataset = BeatDataset(real_grids=real_grids, num_samples=num_samples)
+    num_samples = len(real_grids) * 2  # Exactly 50% real human, 50% synthetic fake garbage
+    dataset = _Phase1Dataset(real_grids=real_grids, num_samples=num_samples)
     
     # 3. Train/Validation Stratified Splitting (80 / 20)
     train_size = int(0.8 * len(dataset))
@@ -135,8 +181,8 @@ def train_discriminator(
               
         if epoch_val_acc > best_val_acc:
             best_val_acc = epoch_val_acc
-            torch.save(model.state_dict(), "outputs/checkpoints/discriminator_best.pth")
-            print(f"  -> Gradient checkpoints saved! New highest Val Acc: {best_val_acc:.4f}")
+            torch.save(model.state_dict(), "outputs/checkpoints/discriminator_phase1_v2.pt")
+            print(f"  -> Checkpoint saved! New best val acc: {best_val_acc:.4f}")
 
     print(f"\nDiscriminator Hardware Training Terminated! Final Optimized Val Accuracy: {best_val_acc:.4f}")
     
