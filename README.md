@@ -99,29 +99,33 @@ branching and letting the architecture encode instrument hierarchy explicitly.
 
 ---
 
-## Results
+## Results (Final — v3 checkpoint)
 
-Evaluated over 20 episodes using `evaluation/evaluate.py` with the Phase 1 checkpoint.
+Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` (v3) and `discriminator_phase1_v2`.
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Best training reward | **0.779** | Epoch 209 / 250 |
-| Rule reward (mean ± std) | **0.821 ± 0.13** | Across 20 eval episodes |
-| Beat density | **0.667 ± 0.03** | Fraction of non-silent cells |
-| Groove consistency | **0.328** | Hits on strong beats (steps 0,4,8,12) / total hits |
-| Kick density | **0.991** | Near-full — kick layer almost always active |
-| Snare density | **0.356** | Appropriately sparse |
-| Hi-hat density | **0.509** | Moderate fill pattern |
-| Clap density | **0.216** | Sparse and realistic |
-| Discriminator score | **0.0002** | Reflects a stronger discriminator (v2, 95.12% val acc) — see note below |
+| Best training reward | **0.942** | Epoch 486 / 500 |
+| Rule reward (mean ± std) | **0.959 ± 0.13** | Across 20 eval episodes |
+| Beat density | **0.454 ± 0.03** | Fraction of non-silent cells |
+| Groove consistency | **0.394 ± 0.03** | Hits on strong beats (steps 0,4,8,12) / total hits |
 
-The rule score of 0.821 confirms the agent has internalized the kick/snare/hihat anchoring rules.
+**Per-layer density:**
 
-> **Note on discriminator score:** The v1 checkpoint (0.044) was trained on all-zero grids as
-> positives and with incorrect instrument counts. Discriminator v2 was retrained with those bugs
-> fixed, reaching 95.12% validation accuracy. The agent's score of 0.0002 against v2 is **not a
-> regression** — it means a much harder discriminator now correctly rejects the agent's current
-> output. Fooling v2 is the goal of the ongoing PPO retraining run (see Current Status below).
+| Instrument | Density | Interpretation |
+|------------|---------|----------------|
+| Kick | **0.997** | Dense anchor — correct |
+| Snare | **0.184** | Learned restraint (was 0.97 in v1) |
+| HiHat | **0.497** | Balanced |
+| Clap | **0.138** | Very sparse — musically realistic |
+
+**Training progression:**
+
+| Run | Config | Best Reward |
+|-----|--------|-------------|
+| v1 | α=0.9, β=0.1, 250 ep, weak disc | 0.825 |
+| v2 | α=0.6, β=0.4, 250 ep, weak disc | 0.779 |
+| **v3 (final)** | **α=0.7, β=0.3, 500 ep, disc v2** | **0.942** |
 
 ---
 
@@ -129,14 +133,11 @@ The rule score of 0.821 confirms the agent has internalized the kick/snare/hihat
 
 **Completed ✅**
 
-- PPO training pipeline (Phase 1, 4×16 grid)
-- Discriminator v2 — 95.12% val accuracy, silence score 0.0002
+- PPO training pipeline — v3 checkpoint (Phase 1, 4×16 grid, 500 epochs)
+- Discriminator v2 — 95.12% val accuracy
+- PPO retraining against `discriminator_phase1_v2` — best reward 0.942 @ epoch 486
 - Audio generation (`generate_audio.py`)
 - Evaluation metrics (`evaluation/evaluate.py`)
-
-**In Progress 🔄**
-
-- PPO retraining against `discriminator_phase1_v2` — needs 500 epochs + α=0.5, β=0.5 (agent not yet fooling the stronger discriminator, score 0.0002)
 
 **Not Started ❌**
 
