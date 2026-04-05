@@ -4,10 +4,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
+from pathlib import Path
 from typing import List
 
 from beat_rl.env import BeatGridEnv, compute_reward
 from beat_rl.models import CNNLayerStepSampleActor, CNNBeatCritic, BeatDiscriminator
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def compute_gae(rewards, values, next_value, dones, gamma, lam):
     """Generalized Advantage Estimation"""
@@ -59,6 +62,8 @@ def train_ppo(
     v_lr: float = 1e-3,
     train_pi_iters: int = 4,
     train_v_iters: int = 4,
+    alpha: float = 0.9,
+    beta: float = 0.1,
     device: str = "cpu"
 ):
     print("--- 🧠 Beat Generation PPO Pipeline ---")
@@ -74,16 +79,16 @@ def train_ppo(
 
     # Optionally load discriminator
     disc = None
-    disc_path = "checkpoints/discriminator_v1.pt"
-    if os.path.exists(disc_path):
+    disc_path = _REPO_ROOT / "outputs" / "checkpoints" / "discriminator_v1.pt"
+    if disc_path.exists():
         print("Loading Pre-trained Discriminator...")
-        disc = BeatDiscriminator(num_instruments=L, num_steps=T, d_model=64, num_heads=4, num_blocks=2, d_ff=128).to(device)
-        disc.load_state_dict(torch.load(disc_path, map_location=device))
+        disc = BeatDiscriminator(num_instruments=L, num_steps=T, d_model=64, num_heads=4, num_blocks=2, d_ff=256).to(device)
+        disc.load_state_dict(torch.load(str(disc_path), map_location=device))
         disc.eval()
 
     # Create Environment
     def r_fn(grid, final, action_coord):
-        return compute_reward(grid, final, action_coord, phase=1, discriminator=disc)
+        return compute_reward(grid, final, action_coord, phase=1, discriminator=disc, alpha=alpha, beta=beta)
 
     env = BeatGridEnv(L=L, T=T, S=S, reward_fn=r_fn, layer_to_samples=layer_to_samples, phase=1)
 
@@ -264,6 +269,7 @@ def train_ppo(
     print(f"Saved: outputs/checkpoints/actor_best.pth, outputs/checkpoints/critic_best.pth")
     print(f"Saved: outputs/plots/first_vs_best_comparison.png")
     print(f"Saved: outputs/plots/beat_grid_epoch_0.png, outputs/plots/beat_grid_epoch_{best_epoch}.png")
+    return history
 
 if __name__ == "__main__":
     import matplotlib
