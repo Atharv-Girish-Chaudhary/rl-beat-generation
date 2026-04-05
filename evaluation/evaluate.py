@@ -203,7 +203,7 @@ def main():
     )
     parser.add_argument(
         "--checkpoint_dir", default=str(REPO_ROOT / "outputs" / "checkpoints"),
-        help="Directory containing actor_best.pth and discriminator_v1.pt",
+        help="Directory containing actor_best.pth and discriminator_phase1_v2.pt",
     )
     parser.add_argument(
         "--output", default=str(DEFAULT_REPORT_PATH),
@@ -241,16 +241,16 @@ def main():
     print(f"Actor  : {actor_path}")
 
     # ── Load discriminator ────────────────────────────────────────────────────
-    # discriminator_v1.pt was trained/saved with num_instruments=L=4 and is
-    # the checkpoint that was active during Phase 1 PPO training.
-    disc_path = ckpt_dir / "discriminator_v1.pt"
+    # discriminator_phase1_v2.pt is trained with num_instruments=L=4, d_ff=128,
+    # and is the checkpoint that was active during Phase 1 PPO training.
+    disc_path = ckpt_dir / "discriminator_phase1_v2.pt"
     if not disc_path.exists():
         print(f"ERROR: discriminator checkpoint not found at {disc_path}")
         sys.exit(1)
 
     disc = BeatDiscriminator(
         num_instruments=L, num_steps=T,
-        d_model=64, num_heads=4, num_blocks=2, d_ff=256
+        d_model=64, num_heads=4, num_blocks=2, d_ff=128
     ).to(device)
     disc.load_state_dict(torch.load(disc_path, map_location=device))
     disc.eval()

@@ -113,11 +113,35 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with the Phase 1 check
 | Snare density | **0.356** | Appropriately sparse |
 | Hi-hat density | **0.509** | Moderate fill pattern |
 | Clap density | **0.216** | Sparse and realistic |
-| Discriminator score | **0.044** | Limited by Phase 1 discriminator checkpoint |
+| Discriminator score | **0.0002** | Reflects a stronger discriminator (v2, 95.12% val acc) — see note below |
 
-The discriminator score is low by design: Phase 1 training uses `α=0.9, β=0.1`, so the rule reward
-dominates and the discriminator receives insufficient gradient signal to shape the policy strongly.
 The rule score of 0.821 confirms the agent has internalized the kick/snare/hihat anchoring rules.
+
+> **Note on discriminator score:** The v1 checkpoint (0.044) was trained on all-zero grids as
+> positives and with incorrect instrument counts. Discriminator v2 was retrained with those bugs
+> fixed, reaching 95.12% validation accuracy. The agent's score of 0.0002 against v2 is **not a
+> regression** — it means a much harder discriminator now correctly rejects the agent's current
+> output. Fooling v2 is the goal of the ongoing PPO retraining run (see Current Status below).
+
+---
+
+## Current Status
+
+**Completed ✅**
+
+- PPO training pipeline (Phase 1, 4×16 grid)
+- Discriminator v2 — 95.12% val accuracy, silence score 0.0002
+- Audio generation (`generate_audio.py`)
+- Evaluation metrics (`evaluation/evaluate.py`)
+
+**In Progress 🔄**
+
+- PPO retraining against `discriminator_phase1_v2` — needs 500 epochs + α=0.5, β=0.5 (agent not yet fooling the stronger discriminator, score 0.0002)
+
+**Not Started ❌**
+
+- SAC agent (Level 2 audio effects)
+- Phase 2 training (8×16 grid)
 
 ---
 
