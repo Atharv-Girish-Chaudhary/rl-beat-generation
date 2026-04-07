@@ -11,5 +11,6 @@ source activate beat_env
 
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install -e /scratch/chaudhary.at/rl-beat-generation
+pip install matplotlib gymnasium
 
 echo "Environment setup complete."
