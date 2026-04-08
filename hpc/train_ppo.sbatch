@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=beat-ppo
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:h200:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=07:30:00
