@@ -16,5 +16,5 @@ PPO_JOB=$(sbatch --parsable --dependency=afterok:$DISC_JOB hpc/train_ppo.sbatch)
 echo "Submitted PPO job: $PPO_JOB (waits for job $DISC_JOB)"
 
 echo ""
-echo "Monitor with:  squeue -u chaudhary.at"
-echo "Cancel all:    scancel -u chaudhary.at"
+echo "make hpc-status"
+echo "make hpc-cancel"
