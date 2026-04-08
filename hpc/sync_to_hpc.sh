@@ -4,7 +4,7 @@
 
 set -e
 
-LOCAL=/Users/atharvchaudhary/PERSONAL/GitHub/rl-beat-generation/
+LOCAL=/Users/atharvchaudhary/GitHub/rl-beat-generation/
 REMOTE=explorer:/scratch/chaudhary.at/rl-beat-generation/
 
 rsync -avz \

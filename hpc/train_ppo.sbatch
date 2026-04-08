@@ -12,8 +12,8 @@ module load anaconda3/2024.06
 
 cd /scratch/chaudhary.at/rl-beat-generation
 
-echo "Pulling latest changes from git at $(date)"
-git pull origin main
+# echo "Pulling latest changes from git at $(date)"
+# git pull origin main
 echo "Starting PPO training on $(hostname) at $(date)"
 export PYTHONUNBUFFERED=1
 /home/chaudhary.at/.conda/envs/beat_env/bin/python scripts/train_ppo.py
