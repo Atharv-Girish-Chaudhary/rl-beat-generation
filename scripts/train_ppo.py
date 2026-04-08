@@ -272,6 +272,14 @@ def train_ppo(
     return history
 
 if __name__ == "__main__":
+    import argparse
     import matplotlib
     matplotlib.use('Agg')
-    train_ppo()
+
+    parser = argparse.ArgumentParser(description="Train PPO agent for beat generation")
+    parser.add_argument("--epochs", type=int, default=500)
+    parser.add_argument("--episodes_per_epoch", type=int, default=32)
+    parser.add_argument("--device", type=str, default="cpu")
+    args = parser.parse_args()
+
+    train_ppo(epochs=args.epochs, episodes_per_epoch=args.episodes_per_epoch, device=args.device)
