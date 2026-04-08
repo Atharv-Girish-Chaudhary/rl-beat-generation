@@ -53,7 +53,7 @@ def render_grid(grid, epoch, save_dir="outputs/plots", ax=None):
         plt.close()
 
 def train_ppo(
-    epochs: int = 250,
+    epochs: int = 500,
     episodes_per_epoch: int = 32,
     gamma: float = 0.99,
     lam: float = 0.95,
@@ -62,8 +62,8 @@ def train_ppo(
     v_lr: float = 1e-3,
     train_pi_iters: int = 4,
     train_v_iters: int = 4,
-    alpha: float = 0.9,
-    beta: float = 0.1,
+    alpha: float = 0.7,
+    beta: float = 0.3,
     device: str = "cpu"
 ):
     print("--- 🧠 Beat Generation PPO Pipeline ---")
