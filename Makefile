@@ -33,6 +33,10 @@ hpc-pull:
 
 # Cancel all your running/pending jobs
 hpc-cancel:
-	ssh $(HPC_REMOTE) "scancel -u chaudhary.at"
+	ssh $(HPC_REMOTE) "cd $(HPC_PATH) && bash hpc/cancel_jobs.sh"
 
-.PHONY: hpc-sync hpc-setup hpc-submit hpc-status hpc-logs hpc-tail hpc-pull hpc-cancel
+# Cancel all jobs, then resubmit fresh
+hpc-restart:
+	ssh $(HPC_REMOTE) "scancel -u chaudhary.at && cd $(HPC_PATH) && bash hpc/submit_jobs.sh"
+
+.PHONY: hpc-sync hpc-setup hpc-submit hpc-status hpc-logs hpc-tail hpc-pull hpc-cancel hpc-restart
