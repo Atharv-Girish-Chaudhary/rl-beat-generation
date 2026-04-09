@@ -87,7 +87,10 @@ def _evaluate_drums(grid: np.ndarray) -> float:
     
     off_beats = [t for t in range(T) if t not in [4, 12]]
     off_beat_hits = np.sum(snare_active[off_beats]) + np.sum(clap_active[off_beats])
-    score -= (off_beat_hits * 0.01)
+    score -= (off_beat_hits * 0.05)
+    
+    if np.mean(snare_active) > 0.30:
+        score -= 0.5
     
     hat_count = np.sum(hihat_active)
     if 4 <= hat_count <= 12:
