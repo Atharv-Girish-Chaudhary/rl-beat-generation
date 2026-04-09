@@ -196,7 +196,7 @@ def train_ppo(
             logp_t, entropy = actor.evaluate_actions(obs_t, act_t)
             ratio = torch.exp(logp_t - old_logp_t)
             clip_adv = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * adv_t
-            loss_pi = -(torch.min(ratio * adv_t, clip_adv)).mean() - 0.05 * entropy.mean()
+            loss_pi = -(torch.min(ratio * adv_t, clip_adv)).mean() - 0.10 * entropy.mean()
             loss_pi.backward()
             nn.utils.clip_grad_norm_(actor.parameters(), max_norm=0.5)
             pi_optimizer.step()
