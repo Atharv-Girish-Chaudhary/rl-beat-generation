@@ -1,105 +1,285 @@
 {
   "config": {
-    "n_episodes": 5,
+    "n_episodes": 20,
     "seed": null,
-    "checkpoint_dir": "/Users/atharvchaudhary/PERSONAL/Public Projects/rl-beat-generation/outputs/checkpoints",
-    "actor": "/Users/atharvchaudhary/PERSONAL/Public Projects/rl-beat-generation/outputs/checkpoints/actor_best.pth",
-    "discriminator": "/Users/atharvchaudhary/PERSONAL/Public Projects/rl-beat-generation/outputs/checkpoints/discriminator_phase1_v2.pt"
+    "checkpoint_dir": "/Users/atharvchaudhary/GitHub/rl-beat-generation/outputs/checkpoints",
+    "actor": "/Users/atharvchaudhary/GitHub/rl-beat-generation/outputs/checkpoints/actor_best.pth",
+    "discriminator": "/Users/atharvchaudhary/GitHub/rl-beat-generation/outputs/checkpoints/discriminator_phase1_v2.pt"
   },
   "summary": {
     "discriminator_score": {
-      "mean": 0.0003,
-      "std": 0.0001
+      "mean": 0.072,
+      "std": 0.0586
     },
     "rule_reward": {
-      "mean": 0.988,
-      "std": 0.0075
+      "mean": 0.866,
+      "std": 0.1012
     },
     "beat_density": {
-      "mean": 0.45,
-      "std": 0.023
+      "mean": 0.6234,
+      "std": 0.022
     },
     "groove_consistency": {
-      "mean": 0.3889,
-      "std": 0.0265
+      "mean": 0.3359,
+      "std": 0.0172
     },
     "per_layer_density": {
       "kick": {
-        "mean": 1.0,
-        "std": 0.0
+        "mean": 0.9906,
+        "std": 0.0223
       },
       "snare": {
-        "mean": 0.2,
-        "std": 0.0468
+        "mean": 0.7,
+        "std": 0.0755
       },
       "hihat": {
-        "mean": 0.475,
-        "std": 0.05
+        "mean": 0.6656,
+        "std": 0.0821
       },
       "clap": {
-        "mean": 0.125,
-        "std": 0.0
+        "mean": 0.1375,
+        "std": 0.025
       }
     }
   },
   "episodes": [
     {
-      "discriminator_score": 0.0001716158731142059,
-      "rule_reward": 0.9800000000000001,
-      "beat_density": 0.46875,
-      "groove_consistency": 0.43333333333333335,
+      "discriminator_score": 0.01064187753945589,
+      "rule_reward": 0.51,
+      "beat_density": 0.59375,
+      "groove_consistency": 0.34210526315789475,
       "per_layer_density": {
         "kick": 1.0,
-        "snare": 0.25,
-        "hihat": 0.5,
+        "snare": 0.625,
+        "hihat": 0.5625,
+        "clap": 0.1875
+      }
+    },
+    {
+      "discriminator_score": 0.009808001108467579,
+      "rule_reward": 0.92,
+      "beat_density": 0.609375,
+      "groove_consistency": 0.358974358974359,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.5625,
+        "hihat": 0.6875,
+        "clap": 0.1875
+      }
+    },
+    {
+      "discriminator_score": 0.14948493242263794,
+      "rule_reward": 0.7100000000000001,
+      "beat_density": 0.65625,
+      "groove_consistency": 0.30952380952380953,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.6875,
+        "hihat": 0.8125,
         "clap": 0.125
       }
     },
     {
-      "discriminator_score": 0.000612065545283258,
-      "rule_reward": 1.0,
-      "beat_density": 0.421875,
-      "groove_consistency": 0.37037037037037035,
+      "discriminator_score": 0.057865533977746964,
+      "rule_reward": 0.8900000000000001,
+      "beat_density": 0.625,
+      "groove_consistency": 0.35,
       "per_layer_density": {
         "kick": 1.0,
-        "snare": 0.125,
-        "hihat": 0.4375,
-        "clap": 0.125
-      }
-    },
-    {
-      "discriminator_score": 0.00035984962596558034,
-      "rule_reward": 0.9900000000000001,
-      "beat_density": 0.4375,
-      "groove_consistency": 0.39285714285714285,
-      "per_layer_density": {
-        "kick": 1.0,
-        "snare": 0.1875,
-        "hihat": 0.4375,
-        "clap": 0.125
-      }
-    },
-    {
-      "discriminator_score": 0.0003442727611400187,
-      "rule_reward": 0.9800000000000001,
-      "beat_density": 0.484375,
-      "groove_consistency": 0.3548387096774194,
-      "per_layer_density": {
-        "kick": 1.0,
-        "snare": 0.25,
+        "snare": 0.8125,
         "hihat": 0.5625,
         "clap": 0.125
       }
     },
     {
-      "discriminator_score": 0.0002535612147767097,
-      "rule_reward": 0.9900000000000001,
-      "beat_density": 0.4375,
-      "groove_consistency": 0.39285714285714285,
+      "discriminator_score": 0.0354706346988678,
+      "rule_reward": 0.8800000000000001,
+      "beat_density": 0.640625,
+      "groove_consistency": 0.34146341463414637,
       "per_layer_density": {
         "kick": 1.0,
-        "snare": 0.1875,
-        "hihat": 0.4375,
+        "snare": 0.875,
+        "hihat": 0.5625,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.26286473870277405,
+      "rule_reward": 0.91,
+      "beat_density": 0.640625,
+      "groove_consistency": 0.3170731707317073,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.6875,
+        "hihat": 0.75,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.08242380619049072,
+      "rule_reward": 0.92,
+      "beat_density": 0.578125,
+      "groove_consistency": 0.35135135135135137,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.625,
+        "hihat": 0.5625,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.046477433294057846,
+      "rule_reward": 0.7100000000000001,
+      "beat_density": 0.65625,
+      "groove_consistency": 0.3333333333333333,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.6875,
+        "hihat": 0.8125,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.09773924946784973,
+      "rule_reward": 0.91,
+      "beat_density": 0.625,
+      "groove_consistency": 0.35,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.6875,
+        "hihat": 0.6875,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.060956958681344986,
+      "rule_reward": 0.91,
+      "beat_density": 0.609375,
+      "groove_consistency": 0.3333333333333333,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.6875,
+        "hihat": 0.6875,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.017735375091433525,
+      "rule_reward": 0.9,
+      "beat_density": 0.640625,
+      "groove_consistency": 0.34146341463414637,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.75,
+        "hihat": 0.6875,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.0833977609872818,
+      "rule_reward": 0.91,
+      "beat_density": 0.640625,
+      "groove_consistency": 0.34146341463414637,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.6875,
+        "hihat": 0.75,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.08240056037902832,
+      "rule_reward": 0.9,
+      "beat_density": 0.625,
+      "groove_consistency": 0.35,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.75,
+        "hihat": 0.625,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.0259927399456501,
+      "rule_reward": 0.8900000000000001,
+      "beat_density": 0.65625,
+      "groove_consistency": 0.3333333333333333,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.75,
+        "hihat": 0.6875,
+        "clap": 0.1875
+      }
+    },
+    {
+      "discriminator_score": 0.07187432050704956,
+      "rule_reward": 0.91,
+      "beat_density": 0.609375,
+      "groove_consistency": 0.3076923076923077,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.6875,
+        "hihat": 0.6875,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.024277327582240105,
+      "rule_reward": 0.8800000000000001,
+      "beat_density": 0.640625,
+      "groove_consistency": 0.36585365853658536,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.8125,
+        "hihat": 0.5625,
+        "clap": 0.1875
+      }
+    },
+    {
+      "discriminator_score": 0.042650990188121796,
+      "rule_reward": 0.92,
+      "beat_density": 0.609375,
+      "groove_consistency": 0.3333333333333333,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.625,
+        "hihat": 0.75,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.1361325979232788,
+      "rule_reward": 0.9,
+      "beat_density": 0.609375,
+      "groove_consistency": 0.3076923076923077,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.75,
+        "hihat": 0.5625,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.032133929431438446,
+      "rule_reward": 0.92,
+      "beat_density": 0.609375,
+      "groove_consistency": 0.3076923076923077,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.625,
+        "hihat": 0.6875,
+        "clap": 0.125
+      }
+    },
+    {
+      "discriminator_score": 0.10938155651092529,
+      "rule_reward": 0.92,
+      "beat_density": 0.59375,
+      "groove_consistency": 0.34210526315789475,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.625,
+        "hihat": 0.625,
         "clap": 0.125
       }
     }
