@@ -81,27 +81,18 @@ def _evaluate_drums(grid: np.ndarray) -> float:
     
     if kick_active[0]: score += 0.1
     if kick_active[8]: score += 0.1
-
-    kick_count = np.sum(kick_active)
-    if kick_count > 6:
-        score -= (kick_count - 6) * 0.1
-
+    
     if snare_active[4] or clap_active[4]: score += 0.1
     if snare_active[12] or clap_active[12]: score += 0.1
     
     off_beats = [t for t in range(T) if t not in [4, 12]]
     off_beat_hits = np.sum(snare_active[off_beats]) + np.sum(clap_active[off_beats])
-    score -= (off_beat_hits * 0.05)
-    
-    if np.mean(snare_active) > 0.30:
-        score -= 0.5
+    score -= (off_beat_hits * 0.01)
     
     hat_count = np.sum(hihat_active)
     if 4 <= hat_count <= 12:
-        score += 0.2
-    if hat_count > 12:
-        score -= (hat_count - 12) * 0.1
-
+        score += 0.2 
+    
     first_half = grid[:4, :8] > 0
     second_half = grid[:4, 8:] > 0
     
@@ -114,8 +105,8 @@ def _evaluate_drums(grid: np.ndarray) -> float:
             score += 0.4
         elif jaccard >= 0.95:
             score -= 0.2  # Punish robotic, exact copying
-
-    return float(np.clip(score, -1.0, 1.0))
+            
+    return float(np.clip(score, 0.0, 1.0))
 
 
 def _evaluate_melodic_elements(grid: np.ndarray) -> float:
