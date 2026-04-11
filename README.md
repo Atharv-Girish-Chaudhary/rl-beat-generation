@@ -106,18 +106,19 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` 
 | Metric | Value | Notes |
 |--------|-------|-------|
 | Best training reward | **0.942** | Epoch 486 / 500 |
-| Rule reward (mean ± std) | **0.959 ± 0.13** | Across 20 eval episodes |
-| Beat density | **0.454 ± 0.03** | Fraction of non-silent cells |
-| Groove consistency | **0.394 ± 0.03** | Hits on strong beats (steps 0,4,8,12) / total hits |
+| Rule reward (mean ± std) | **0.9585 ± 0.1330** | Across 20 eval episodes |
+| Beat density | **0.4508 ± 0.0173** | Fraction of non-silent cells |
+| Groove consistency | **0.3971 ± 0.0332** | Hits on strong beats (steps 0,4,8,12) / total hits |
+| Discriminator score | **0.0005 ± 0.0003** | sigmoid(discriminator logit) |
 
 **Per-layer density:**
 
 | Instrument | Density | Interpretation |
 |------------|---------|----------------|
-| Kick | **0.997** | Dense anchor — correct |
-| Snare | **0.184** | Learned restraint (was 0.97 in v1) |
-| HiHat | **0.497** | Balanced |
-| Clap | **0.138** | Very sparse — musically realistic |
+| Kick | **0.9969 ± 0.0136** | Dense anchor — correct |
+| Snare | **0.1844 ± 0.0503** | Learned restraint (was 0.97 in v1) |
+| HiHat | **0.4844 ± 0.0762** | Balanced |
+| Clap | **0.1375 ± 0.0250** | Very sparse — musically realistic |
 
 **Training progression:**
 
@@ -212,7 +213,7 @@ rl-beat-generation/
 │   ├── beat_sample.wav                   # Most recent generated beat
 │   └── evaluation_report.json           # Latest evaluation results (20 episodes)
 │
-├── tests/                                # 16 unit + integration tests (all pass)
+├── tests/                                # 17 unit + integration tests (all pass)
 │   ├── test_actor.py
 │   ├── test_beat_env.py
 │   ├── test_critic.py
