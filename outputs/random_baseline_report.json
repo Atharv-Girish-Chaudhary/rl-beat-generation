@@ -1,0 +1,284 @@
+{
+  "config": {
+    "n_episodes": 20,
+    "agent": "random"
+  },
+  "summary": {
+    "discriminator_score": {
+      "mean": 6.783200624340679e-05,
+      "std": 2.9814429675752307e-06
+    },
+    "rule_reward": {
+      "mean": 0.417,
+      "std": 0.21286380622360393
+    },
+    "beat_density": {
+      "mean": 0.94375,
+      "std": 0.032173844190584375
+    },
+    "groove_consistency": {
+      "mean": 0.8992943548387096,
+      "std": 0.057886870528009504
+    },
+    "per_layer_density": {
+      "kick": {
+        "mean": 0.94375,
+        "std": 0.05191639914323797
+      },
+      "snare": {
+        "mean": 0.95,
+        "std": 0.046770717334674264
+      },
+      "hihat": {
+        "mean": 0.940625,
+        "std": 0.05403630145559557
+      },
+      "clap": {
+        "mean": 0.940625,
+        "std": 0.08022186033120898
+      }
+    }
+  },
+  "episodes": [
+    {
+      "discriminator_score": 6.448855856433511e-05,
+      "rule_reward": 0.52,
+      "beat_density": 0.953125,
+      "groove_consistency": 0.90625,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 1.0,
+        "hihat": 0.875,
+        "clap": 1.0
+      }
+    },
+    {
+      "discriminator_score": 6.891359225846827e-05,
+      "rule_reward": 0.54,
+      "beat_density": 0.953125,
+      "groove_consistency": 0.90625,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 0.9375,
+        "clap": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 6.622053479077294e-05,
+      "rule_reward": 0.0,
+      "beat_density": 0.984375,
+      "groove_consistency": 0.96875,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 1.0,
+        "hihat": 1.0,
+        "clap": 1.0
+      }
+    },
+    {
+      "discriminator_score": 6.594741716980934e-05,
+      "rule_reward": 0.54,
+      "beat_density": 0.921875,
+      "groove_consistency": 0.84375,
+      "per_layer_density": {
+        "kick": 0.875,
+        "snare": 0.9375,
+        "hihat": 0.9375,
+        "clap": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 6.381593266269192e-05,
+      "rule_reward": 0.0,
+      "beat_density": 0.953125,
+      "groove_consistency": 0.967741935483871,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 0.875,
+        "clap": 1.0
+      }
+    },
+    {
+      "discriminator_score": 6.785457662772387e-05,
+      "rule_reward": 0.5800000000000001,
+      "beat_density": 0.890625,
+      "groove_consistency": 0.8387096774193549,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 0.9375,
+        "clap": 0.6875
+      }
+    },
+    {
+      "discriminator_score": 6.602053326787427e-05,
+      "rule_reward": 0.56,
+      "beat_density": 0.890625,
+      "groove_consistency": 0.78125,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.875,
+        "hihat": 0.875,
+        "clap": 0.875
+      }
+    },
+    {
+      "discriminator_score": 6.378544640028849e-05,
+      "rule_reward": 0.0,
+      "beat_density": 0.984375,
+      "groove_consistency": 0.96875,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 1.0,
+        "clap": 1.0
+      }
+    },
+    {
+      "discriminator_score": 7.614080823259428e-05,
+      "rule_reward": 0.53,
+      "beat_density": 0.9375,
+      "groove_consistency": 0.875,
+      "per_layer_density": {
+        "kick": 0.875,
+        "snare": 0.9375,
+        "hihat": 0.9375,
+        "clap": 1.0
+      }
+    },
+    {
+      "discriminator_score": 6.55851763440296e-05,
+      "rule_reward": 0.54,
+      "beat_density": 0.96875,
+      "groove_consistency": 0.9375,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 1.0,
+        "clap": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 7.105998520273715e-05,
+      "rule_reward": 0.54,
+      "beat_density": 0.96875,
+      "groove_consistency": 0.9375,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 1.0,
+        "hihat": 1.0,
+        "clap": 0.875
+      }
+    },
+    {
+      "discriminator_score": 7.123413524823263e-05,
+      "rule_reward": 0.43000000000000005,
+      "beat_density": 0.96875,
+      "groove_consistency": 0.9375,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.9375,
+        "hihat": 1.0,
+        "clap": 1.0
+      }
+    },
+    {
+      "discriminator_score": 6.851466605439782e-05,
+      "rule_reward": 0.52,
+      "beat_density": 0.96875,
+      "groove_consistency": 0.9375,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 1.0,
+        "hihat": 0.9375,
+        "clap": 1.0
+      }
+    },
+    {
+      "discriminator_score": 7.059994095470756e-05,
+      "rule_reward": 0.56,
+      "beat_density": 0.921875,
+      "groove_consistency": 0.84375,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.9375,
+        "hihat": 1.0,
+        "clap": 0.8125
+      }
+    },
+    {
+      "discriminator_score": 6.577915337402374e-05,
+      "rule_reward": 0.56,
+      "beat_density": 0.875,
+      "groove_consistency": 0.8064516129032258,
+      "per_layer_density": {
+        "kick": 0.875,
+        "snare": 0.8125,
+        "hihat": 0.9375,
+        "clap": 0.875
+      }
+    },
+    {
+      "discriminator_score": 7.070720312185585e-05,
+      "rule_reward": 0.54,
+      "beat_density": 0.953125,
+      "groove_consistency": 0.90625,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 0.9375,
+        "clap": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 6.722814578097314e-05,
+      "rule_reward": 0.0,
+      "beat_density": 0.984375,
+      "groove_consistency": 0.96875,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 1.0,
+        "hihat": 1.0,
+        "clap": 1.0
+      }
+    },
+    {
+      "discriminator_score": 6.945709901629016e-05,
+      "rule_reward": 0.43000000000000005,
+      "beat_density": 0.953125,
+      "groove_consistency": 0.90625,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 1.0,
+        "hihat": 0.9375,
+        "clap": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 6.594351725652814e-05,
+      "rule_reward": 0.42000000000000004,
+      "beat_density": 0.9375,
+      "groove_consistency": 0.9354838709677419,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 1.0,
+        "hihat": 0.8125,
+        "clap": 1.0
+      }
+    },
+    {
+      "discriminator_score": 6.73437025398016e-05,
+      "rule_reward": 0.53,
+      "beat_density": 0.90625,
+      "groove_consistency": 0.8125,
+      "per_layer_density": {
+        "kick": 0.8125,
+        "snare": 0.9375,
+        "hihat": 0.875,
+        "clap": 1.0
+      }
+    }
+  ]
+}
