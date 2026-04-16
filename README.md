@@ -99,17 +99,18 @@ branching and letting the architecture encode instrument hierarchy explicitly.
 
 ---
 
-## Results (Final — v3 checkpoint)
+## Results (Final — v3 checkpoint vs Random Baseline)
 
-Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` (v3) and `discriminator_phase1_v2`.
+Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` (v3) and `discriminator_phase1_v2`. Comparison against random uniform action baseline evaluated using `evaluation/evaluate_baseline.py`.
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Best training reward | **0.942** | Epoch 486 / 500 |
-| Rule reward (mean ± std) | **0.9585 ± 0.1330** | Across 20 eval episodes |
-| Beat density | **0.4508 ± 0.0173** | Fraction of non-silent cells |
-| Groove consistency | **0.3971 ± 0.0332** | Hits on strong beats (steps 0,4,8,12) / total hits |
-| Discriminator score | **0.0005 ± 0.0003** | sigmoid(discriminator logit) |
+| Metric | Agent (v3) | Random Baseline | Notes |
+|--------|------------|-----------------|-------|
+| Rule reward | **0.9585 ± 0.1330** | 0.4595 ± 0.2019 | Agent learned to follow musical rules |
+| Discriminator score | **0.0005 ± 0.0003** | 0.0001 ± 0.0000 | Both low, but agent learns slightly more structural patterns |
+| Beat density | **0.4508 ± 0.0173** | 0.9305 ± 0.0294 | Agent learned restraint vs random noise barrage |
+| Groove consistency | **0.3971 ± 0.0332** | 0.8641 ± 0.0643 | Random is artificially high due to density |
+
+![Baseline vs Agent Comparison](outputs/plots/baseline_comparison.png)
 
 **Per-layer density:**
 
@@ -179,7 +180,8 @@ rl-beat-generation/
 │   └── generate_audio.py                 # Actor inference → WAV rendering
 │
 ├── evaluation/
-│   └── evaluate.py                       # N-episode eval: rule reward, density, groove
+│   ├── evaluate.py                       # N-episode eval: rule reward, density, groove
+│   └── evaluate_baseline.py              # Random baseline evaluation and comparison
 │
 ├── notebooks/
 │   ├── train_ppo_colab.ipynb             # Colab PPO training notebook (T4/A100)
@@ -207,11 +209,13 @@ rl-beat-generation/
 │   │   ├── discriminator_phase1_v2.pt    # Discriminator v2 (95.12% val accuracy)
 │   │   └── discriminator_v1.pt           # Discriminator v1
 │   ├── plots/
+│   │   ├── baseline_comparison.png       # Bar chart comparing agent vs baseline metrics
 │   │   ├── beat_grid_epoch_*.png         # Per-epoch beat grid snapshots
 │   │   ├── first_vs_best_comparison.png  # Epoch 0 vs best checkpoint comparison
 │   │   └── ppo_training_plot.png         # Training reward curve
 │   ├── beat_sample.wav                   # Most recent generated beat
-│   └── evaluation_report.json           # Latest evaluation results (20 episodes)
+│   ├── evaluation_report.json           # Latest agent evaluation results
+│   └── random_baseline_report.json      # Latest baseline evaluation results
 │
 ├── tests/                                # 17 unit + integration tests (all pass)
 │   ├── test_actor.py
@@ -277,6 +281,13 @@ python scripts/generate_audio.py --seed 42 --bpm 120 --n_beats 4
 ```bash
 python evaluation/evaluate.py --n_episodes 20
 # Prints summary table, writes outputs/evaluation_report.json
+```
+
+**Evaluate the random baseline:**
+
+```bash
+python evaluation/evaluate_baseline.py --n_episodes 20
+# Prints summary table, writes outputs/random_baseline_report.json and outputs/plots/baseline_comparison.png
 ```
 
 **Retrain the discriminator** (requires Groove MIDI dataset):
