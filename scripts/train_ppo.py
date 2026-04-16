@@ -43,7 +43,7 @@ def render_grid(grid, epoch, save_dir="outputs/plots", ax=None):
     ax.set_ylabel('Layer (Instrument)')
     ax.set_xlabel('Time Step')
     ax.set_yticks(np.arange(grid.shape[0]))
-    ax.set_yticklabels(['Kick', 'Snare', 'HiHat', 'Clap'][:grid.shape[0]])
+    ax.set_yticklabels(['Kick', 'Snare', 'HiHat', 'Clap', 'Bass', 'Melody', 'Pad', 'FX'][:grid.shape[0]])
     ax.set_xticks(np.arange(0, grid.shape[1], 4))
     ax.grid(color='black', linestyle='-', linewidth=0.5, axis='x')
     
@@ -64,7 +64,8 @@ def train_ppo(
     train_v_iters: int = 4,
     alpha: float = 0.7,
     beta: float = 0.3,
-    device: str = "cpu"
+    device: str = "cpu",
+    phase: int = 1
 ):
     print("--- 🧠 Beat Generation PPO Pipeline ---")
     if torch.cuda.is_available():
@@ -73,24 +74,26 @@ def train_ppo(
         device = "mps"
     print(f"Accelerating on Device: {device}")
 
-    # Phase 1 parameters
-    L, T, S = 4, 16, 15
+    # Phase parameters
+    L = 4 if phase == 1 else 8
+    T, S = 16, 15
     layer_to_samples = {i: list(range(1, 16)) for i in range(L)}
 
     # Optionally load discriminator
     disc = None
-    disc_path = _REPO_ROOT / "outputs" / "checkpoints" / "discriminator_phase1_v2.pt"
+    ckpt_name = "discriminator_phase1_v2.pt" if phase == 1 else "discriminator_phase2.pt"
+    disc_path = _REPO_ROOT / "outputs" / "checkpoints" / ckpt_name
     if disc_path.exists():
-        print("Loading Pre-trained Discriminator...")
+        print(f"Loading Pre-trained Discriminator: {ckpt_name}...")
         disc = BeatDiscriminator(num_instruments=L, num_steps=T, d_model=64, num_heads=4, num_blocks=2, d_ff=128).to(device)
         disc.load_state_dict(torch.load(str(disc_path), map_location=device))
         disc.eval()
 
     # Create Environment
     def r_fn(grid, final, action_coord):
-        return compute_reward(grid, final, action_coord, phase=1, discriminator=disc, alpha=alpha, beta=beta)
+        return compute_reward(grid, final, action_coord, phase=phase, discriminator=disc, alpha=alpha, beta=beta)
 
-    env = BeatGridEnv(L=L, T=T, S=S, reward_fn=r_fn, layer_to_samples=layer_to_samples, phase=1)
+    env = BeatGridEnv(L=L, T=T, S=S, reward_fn=r_fn, layer_to_samples=layer_to_samples, phase=phase)
 
     # Initialize Actor & Critic
     actor = CNNLayerStepSampleActor(L=L, T=T, S=S, env_layer_to_samples=layer_to_samples).to(device)
@@ -280,6 +283,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--episodes_per_epoch", type=int, default=32)
     parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--phase", type=int, default=1, choices=[1, 2], help="Phase 1 (L=4) or Phase 2 (L=8)")
     args = parser.parse_args()
 
-    train_ppo(epochs=args.epochs, episodes_per_epoch=args.episodes_per_epoch, device=args.device)
+    train_ppo(epochs=args.epochs, episodes_per_epoch=args.episodes_per_epoch, device=args.device, phase=args.phase)
