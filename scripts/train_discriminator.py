@@ -54,7 +54,7 @@ class _Phase1Dataset(BeatDataset):
 
 def train_discriminator(
     data_path: str = "data/processed/groove_grids.npy",
-    epochs: int = 15,       # Sufficient for simple binary rhythmic classification convergence
+    epochs: int = 5,       # Sufficient for simple binary rhythmic classification convergence
     batch_size: int = 128,
     lr: float = 3e-4,
     device: str = "cpu",

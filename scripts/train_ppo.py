@@ -62,8 +62,8 @@ def train_ppo(
     v_lr: float = 1e-3,
     train_pi_iters: int = 4,
     train_v_iters: int = 4,
-    alpha: float = 0.7,
-    beta: float = 0.3,
+    alpha: float = 0.5,
+    beta: float = 0.5,
     device: str = "cpu",
     phase: int = 1
 ):
