@@ -66,3 +66,5 @@ outputs/checkpoints/
 *.m4a
 *.mid
 *.midi
+
+hpc/
