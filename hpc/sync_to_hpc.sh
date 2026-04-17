@@ -12,7 +12,9 @@ rsync -avz \
     --exclude='__pycache__' \
     --exclude='*.pyc' \
     --exclude='.git/' \
+    --exclude='.venv/' \
     --exclude='*.egg-info/' \
     "$LOCAL" "$REMOTE"
+
 
 echo "Sync to HPC complete."
