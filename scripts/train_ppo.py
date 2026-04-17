@@ -109,8 +109,12 @@ def train_ppo(
     first_grid = None
     first_reward = 0.0
     best_grid = None
-    os.makedirs("outputs/checkpoints", exist_ok=True)
-    os.makedirs("outputs/plots", exist_ok=True)
+    ckpt_dir  = _REPO_ROOT / "outputs" / "checkpoints"
+    plot_dir  = _REPO_ROOT / "outputs" / "plots"
+    actor_ckpt_path  = ckpt_dir / f"actor_phase{phase}_best.pth"
+    critic_ckpt_path = ckpt_dir / f"critic_phase{phase}_best.pth"
+    os.makedirs(ckpt_dir, exist_ok=True)
+    os.makedirs(plot_dir, exist_ok=True)
 
     print("\nCommencing PPO Training Loop...")
     
@@ -170,7 +174,7 @@ def train_ppo(
             best_ep_idx = int(np.argmax(epoch_rewards))
             first_grid = epoch_grids[best_ep_idx]
             first_reward = epoch_rewards[best_ep_idx]
-            render_grid(first_grid, epoch=0)
+            render_grid(first_grid, epoch=0, save_dir=str(plot_dir))
 
         # Save best model checkpoint (uses best episode grid, not last episode)
         if mean_ep_reward > best_reward:
@@ -178,10 +182,10 @@ def train_ppo(
             best_epoch = epoch
             best_ep_idx = int(np.argmax(epoch_rewards))
             best_grid = epoch_grids[best_ep_idx]
-            torch.save(actor.state_dict(), "outputs/checkpoints/actor_best.pth")
-            torch.save(critic.state_dict(), "outputs/checkpoints/critic_best.pth")
-            render_grid(best_grid, epoch=epoch)
-            print(f"  ✅ New best model saved! (Reward: {best_reward:.3f})")
+            torch.save(actor.state_dict(), str(actor_ckpt_path))
+            torch.save(critic.state_dict(), str(critic_ckpt_path))
+            render_grid(best_grid, epoch=epoch, save_dir=str(plot_dir))
+            print(f"  ✅ New best model saved → {actor_ckpt_path.name}  (Reward: {best_reward:.3f})")
 
         # Optimization Data Prep
         obs_t = torch.tensor(np.array(obs_buf), dtype=torch.float32).to(device)
@@ -245,7 +249,7 @@ def train_ppo(
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig("outputs/plots/ppo_training_plot.png")
+    plt.savefig(str(plot_dir / "ppo_training_plot.png"))
     plt.close()
     
     # Generate Side-by-Side Comparison: First Epoch vs Best Epoch
@@ -261,17 +265,18 @@ def train_ppo(
         
         fig.suptitle('Beat Grid Evolution: First vs Best', fontsize=16, fontweight='bold', y=1.02)
         plt.tight_layout()
-        plt.savefig("outputs/plots/first_vs_best_comparison.png", bbox_inches='tight')
+        plt.savefig(str(plot_dir / "first_vs_best_comparison.png"), bbox_inches='tight')
         plt.close()
         
         # Save standalone grid PNGs for epoch 0 and best
-        render_grid(first_grid, epoch=0)
-        render_grid(best_grid, epoch=best_epoch)
+        render_grid(first_grid, epoch=0, save_dir=str(plot_dir))
+        render_grid(best_grid, epoch=best_epoch, save_dir=str(plot_dir))
     
     print(f"\nPPO training finished. Best model at Epoch {best_epoch} (Reward: {best_reward:.3f}).")
-    print(f"Saved: outputs/checkpoints/actor_best.pth, outputs/checkpoints/critic_best.pth")
-    print(f"Saved: outputs/plots/first_vs_best_comparison.png")
-    print(f"Saved: outputs/plots/beat_grid_epoch_0.png, outputs/plots/beat_grid_epoch_{best_epoch}.png")
+    print(f"Saved: {actor_ckpt_path}")
+    print(f"Saved: {critic_ckpt_path}")
+    print(f"Saved: {plot_dir / 'first_vs_best_comparison.png'}")
+    print(f"Saved: {plot_dir / 'beat_grid_epoch_0.png'}, {plot_dir / f'beat_grid_epoch_{best_epoch}.png'}")
     return history
 
 if __name__ == "__main__":
