@@ -181,11 +181,18 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_phase1_bes
 Evaluated over 20 episodes using `evaluation/evaluate.py --phase 2` with `actor_phase2_best.pth`
 and `discriminator_phase2`.
 
-| Metric | Phase 1 (v3) | Phase 2 |
-|--------|-------------|---------|
-| Rule reward | 0.9585 | see `outputs/evaluation_report_phase2.json` |
-| Beat density | 0.4508 | see `outputs/evaluation_report_phase2.json` |
-| Groove consistency | 0.3971 | see `outputs/evaluation_report_phase2.json` |
+| Metric | Phase 1 (v3) | Phase 2 | Notes |
+|--------|-------------|---------|-------|
+| Rule reward (mean ± std) | 0.9585 ± 0.1330 | **0.7215 ± 0.0781** | Phase 2 lower due to density spam |
+| Beat density | 0.4508 ± 0.0173 | **0.8871 ± 0.0275** | Agent exploits density for reward |
+| Groove consistency | 0.3971 ± 0.0332 | **0.2660 ± 0.0112** | Near random-noise floor (0.25) |
+| Discriminator score | 0.0005 ± 0.0003 | **0.0008 ± 0.0002** | Effectively zero — disc not influencing agent |
+
+**Phase 2 per-layer density:** Kick 0.978, Snare 0.903, HiHat **0.628** (learned throttle for hat
+rule), Clap 0.834, Bass 0.922, Melody 0.944, Pad 0.972, FX 0.916.
+
+> ⚠️ **Known issue:** The Phase 2 agent is stuck in a density-spam local optimum.
+> See `docs/phase2_diagnostic.md` for root-cause analysis and proposed fixes.
 
 ---
 
@@ -206,11 +213,8 @@ rl-beat-generation/
 │       └── discriminator.py              # BeatDiscriminator (transformer encoder)
 │
 ├── scripts/
-│   ├── train_ppo.py                      # PPO training loop (Phase 1)
-│   ├── train_discriminator.py            # Discriminator pre-training (Phase 1)
-│   ├── train_ppo_phase2.py               # PPO training loop (Phase 2, 8×16)
-│   ├── train_discriminator_phase2.py     # Discriminator pre-training (Phase 2)
-│   ├── train_sac.py                      # SAC training for continuous audio FX
+│   ├── train_ppo.py                      # PPO training loop (Phase 1 & 2 via --phase flag)
+│   ├── train_discriminator.py            # Discriminator pre-training (Phase 1 & 2 via --phase flag)
 │   ├── process_groove.py                 # Groove MIDI → (N, L, T) binary grids
 │   ├── download_samples.py               # Freesound API sample downloader
 │   └── generate_audio.py                 # Actor inference → WAV rendering
@@ -222,8 +226,8 @@ rl-beat-generation/
 ├── configs/
 │   ├── ppo_phase1.yaml                   # Phase 1 PPO hyperparameters (4×16)
 │   ├── ppo_phase2.yaml                   # Phase 2 PPO hyperparameters (8×16)
-│   ├── sac.yaml                          # SAC hyperparameters (continuous audio FX)
-│   └── discriminator.yaml               # Discriminator training config
+│   ├── sac.yaml                          # SAC hyperparameters (reserved for future use)
+│   └── discriminator.yaml                # Discriminator training config
 │
 ├── hpc/                                  # HPC cluster scripts (SLURM / SSH)
 │   ├── env.sh.example                    # Template — copy to env.sh and fill values
@@ -249,30 +253,31 @@ rl-beat-generation/
 │   ├── processed/groove_grids.npy        # Pre-processed Groove MIDI grids (gitignored)
 │   ├── raw/groove/                       # Groove MIDI dataset (gitignored)
 │   └── samples/                          # Freesound WAV samples (gitignored)
-│       ├── kick/   (30 samples)
-│       ├── snare/  (30 samples)
-│       ├── hihat/  (25 samples)
-│       ├── clap/   (20 samples)
-│       ├── bass/, melody/, pad/, fx/
+│       ├── kick/   snare/  hihat/  clap/
+│       ├── bass/   melody/ pad/    fx/
 │       └── {layer}/metadata.json         # ID → filename mapping
 │
 ├── outputs/
 │   ├── checkpoints/                      # Model weights (gitignored)
 │   │   ├── actor_phase1_best.pth         # Best Phase 1 actor (v3, epoch 486)
-│   │   ├── critic_phase1_best.pth        # Best Phase 1 critic
+│   │   ├── critic_phase1_best.pth
 │   │   ├── discriminator_phase1_v2.pt    # Phase 1 discriminator (95.12% val acc)
-│   │   ├── actor_phase2_best.pth         # Best Phase 2 actor (8×16)
-│   │   ├── critic_phase2_best.pth        # Best Phase 2 critic
-│   │   └── discriminator_phase2.pt       # Phase 2 discriminator
+│   │   ├── actor_phase2_best.pth
+│   │   ├── critic_phase2_best.pth
+│   │   └── discriminator_phase2.pt
 │   ├── plots/
-│   │   ├── first_vs_best_comparison.png  # Epoch 0 vs best checkpoint
-│   │   └── ppo_training_plot.png         # Training reward curve
-│   ├── evaluation_report.json            # Phase 1 eval results (20 episodes)
-│   ├── evaluation_report_phase2.json     # Phase 2 eval results (20 episodes)
+│   │   ├── first_vs_best_comparison.png  # Epoch 0 vs best checkpoint grid
+│   │   ├── ppo_training_plot.png         # Reward / actor loss / critic loss curves
+│   │   ├── discriminator_training_plot.png
+│   │   ├── baseline_comparison.png       # PPO vs random bar chart (Phase 1)
+│   │   └── baseline_comparison_phase2.png
+│   ├── evaluation_report.json            # Phase 1 PPO eval (20 episodes)
+│   ├── evaluation_report_phase2.json     # Phase 2 PPO eval (20 episodes)
 │   ├── random_baseline_report.json       # Phase 1 random baseline
-│   └── random_baseline_report_phase2.json # Phase 2 random baseline
+│   └── random_baseline_report_phase2.json
 │
-├── tests/                                # 17 unit + integration tests (all pass)
+├── tests/                                # 17 unit + integration tests
+│   ├── conftest.py
 │   ├── test_actor.py
 │   ├── test_beat_env.py
 │   ├── test_critic.py
@@ -281,10 +286,15 @@ rl-beat-generation/
 │   ├── test_integration.py
 │   ├── test_process_groove.py
 │   ├── test_reward.py
-│   └── conftest.py
+│   └── test_reward_sanity.py
 │
 ├── docs/
-│   └── rl_beat_gen_level1_guide.md
+│   ├── beat_report.tex                   # LaTeX project report
+│   ├── beat_report.pdf                   # Compiled PDF (gitignored build artifacts)
+│   ├── phase2_diagnostic.md              # Root-cause analysis of Phase 2 density issue
+│   └── PROGRESS.md                       # Development status tracker
+│
+├── configs/
 ├── environment.yml
 ├── requirements.txt
 ├── Makefile
@@ -359,14 +369,14 @@ streamlit run app.py
 
 ```bash
 conda activate rl-beats
-python scripts/train_ppo.py
+python scripts/train_ppo.py --phase 1
 # Saves actor_phase1_best.pth, critic_phase1_best.pth to outputs/checkpoints/
 ```
 
 **Retrain from scratch (Phase 2):**
 
 ```bash
-python scripts/train_ppo_phase2.py
+python scripts/train_ppo.py --phase 2
 # Saves actor_phase2_best.pth, critic_phase2_best.pth to outputs/checkpoints/
 ```
 
@@ -394,9 +404,17 @@ python evaluation/evaluate_baseline.py --n_episodes 20 --phase 2
 ```bash
 wget https://storage.googleapis.com/magentadata/datasets/groove/groove-v1.0.0-midionly.zip
 unzip groove-v1.0.0-midionly.zip -d data/raw/groove
-python scripts/process_groove.py          # → data/processed/groove_grids.npy
-python scripts/train_discriminator.py     # Phase 1 → outputs/checkpoints/discriminator_phase1_v2.pt
-python scripts/train_discriminator_phase2.py  # Phase 2 → outputs/checkpoints/discriminator_phase2.pt
+python scripts/process_groove.py              # → data/processed/groove_grids.npy
+python scripts/train_discriminator.py --phase 1  # → discriminator_phase1_v2.pt
+python scripts/train_discriminator.py --phase 2  # → discriminator_phase2.pt
+```
+
+**Compile the PDF report** (requires MacTeX / TeX Live):
+
+```bash
+# Output PDF and auxiliary files go into docs/
+pdflatex -output-directory=docs docs/beat_report.tex
+pdflatex -output-directory=docs docs/beat_report.tex  # run twice for cross-references
 ```
 
 **Run tests:**

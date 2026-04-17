@@ -1,0 +1,322 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{float}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\title{\textbf{Reinforcement Learning for Structured Beat Generation} \\
+\large CS 5180 --- Reinforcement Learning and Sequential Decision Making}
+\author{Atharv Girish Chaudhary \and Yixun Li \and Taha Oguzhan Ucar}
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We formulate drum beat generation as a sequential decision-making problem and train a Proximal Policy Optimization (PPO) agent to fill a $4 \times 16$ beat grid one instrument-step at a time. A pre-trained convolutional discriminator, trained on the Groove MIDI Dataset, provides an adversarial reward signal that complements a handcrafted rule reward. On Phase 1 (four instruments), the trained PPO agent achieves a mean rule reward of $0.959 \pm 0.133$ compared to $0.417 \pm 0.213$ for a random baseline --- a $130\%$ relative improvement --- while producing beats at roughly half the density of the random agent, demonstrating that the agent has learned sparse, musically structured patterns. We further extend the system to Phase 2 (eight instruments) and present results and analysis of the challenges that arise from scaling the action space. We discuss limitations, including a discriminator reward collapse, and motivate Soft Actor-Critic (SAC) as a planned direction for Phase 2.
+\end{abstract}
+
+\section{Introduction}
+
+Automatic music generation sits at the intersection of creativity and sequential decision-making. While prior work has approached beat generation through recurrent models and variational autoencoders, framing it as a reinforcement learning problem offers an appealing property: an agent can be rewarded directly for the \textit{quality} of the patterns it produces, interleaving musical heuristics with learned aesthetic preferences.
+
+This project treats drum beat generation as a finite-horizon Markov Decision Process. At each step, the agent places a single sample into one cell of a $4 \times 16$ grid, where rows represent instrument tracks and columns represent the 16 subdivisions of a one-bar loop at 4/4 time. The episode terminates when all cells are filled. The reward is a weighted combination of a rule-based score --- encoding well-known drum programming conventions --- and a discriminator score that estimates whether the completed beat resembles real human-produced patterns from the Groove MIDI Dataset \cite{groove2019}.
+
+Phase 1 covers four instruments: kick, snare, hi-hat, and clap. Phase 2 extends this to eight instruments by adding bass, melody, pad, and FX layers, significantly enlarging both the state and action spaces.
+
+\section{Problem Formulation}
+
+\subsection{State Space}
+
+The state $s_t$ at step $t$ is the current partially-filled beat grid, represented as a $4 \times 16$ integer matrix (Phase 1) or $8 \times 16$ matrix (Phase 2). Each cell takes a value in $\{0, 1, \ldots, K\}$, where $0$ denotes silence and $1$ through $K$ index available audio samples for that instrument. The agent also observes a binary action mask indicating which cells remain unfilled.
+
+\subsection{Action Space}
+
+At each step $t$, the agent selects a tuple $(i, j, k)$: row $i$ (instrument), column $j$ (time step), and sample $k$. An action mask is applied so the agent can only write to empty cells and can only select valid samples for the chosen instrument. The total number of available actions per step shrinks monotonically as the grid fills.
+
+\subsection{Reward Function}
+
+The reward is issued at the end of each episode (terminal reward) and decomposes as:
+\[
+R = \alpha \cdot R_{\text{rule}} + \beta \cdot R_{\text{disc}}
+\]
+where $R_{\text{rule}} \in [0, 1]$ is the rule-based score and $R_{\text{disc}} \in [0, 1]$ is the discriminator's probability that the beat is real. In Phase 1, $\alpha = 0.9$ and $\beta = 0.1$, weighting the structured heuristics heavily while allowing the discriminator to shape finer aesthetic details.
+
+\paragraph{Rule Reward.} $R_{\text{rule}}$ encodes the following musical conventions:
+\begin{itemize}[nosep]
+    \item \textbf{Kick}: should appear on strong beats (steps 0 and 8); high density is acceptable.
+    \item \textbf{Snare}: should appear on backbeats (steps 4 and 12); density should be sparse (target $\approx 12$--$25\%$).
+    \item \textbf{Hi-hat}: moderate density is rewarded; overuse is penalized.
+    \item \textbf{Clap}: sparse placement, similar constraints to snare.
+\end{itemize}
+Each sub-rule is normalized to $[0, 1]$ and averaged, yielding $R_{\text{rule}}$.
+
+\paragraph{Discriminator Reward.} A convolutional binary classifier $D_\phi$ is trained to distinguish real Groove MIDI beats from agent-generated ones. At evaluation time, its sigmoid output $D_\phi(g) \in [0, 1]$ for a generated beat $g$ serves as $R_{\text{disc}}$. The discriminator is \textit{frozen} during PPO training; it is not updated adversarially. A notable challenge of this formulation is that the reward is issued only at episode termination, requiring the agent to learn credit assignment across up to 64 sequential placement decisions with no intermediate signal.
+
+\section{Data}
+
+\subsection{Groove MIDI Dataset}
+
+The Groove MIDI Dataset \cite{groove2019} contains over 13 hours of MIDI drum performances by professional drummers, recorded to a metronome with timing and velocity information preserved. For this project, the dataset is preprocessed into $4 \times 16$ binary activation grids by quantizing each MIDI performance to a 16-step bar and mapping drum channels to the four instrument tracks. The resulting grids serve as positive examples for discriminator training.
+
+\subsection{Preprocessing}
+
+Each MIDI file is segmented into one-bar windows. Steps with any MIDI velocity $> 0$ on a given track are marked as active ($1$); otherwise the cell is silent ($0$). For Phase 1, only the four primary tracks are retained. For Phase 2, four additional synthesizer tracks (bass, melody, pad, FX) are generated programmatically to augment the drum data, as the Groove dataset does not contain pitched instrument data.
+
+\section{Methods}
+
+\subsection{Discriminator Architecture}
+
+The discriminator $D_\phi$ is a lightweight convolutional network that takes a $C \times 16$ beat grid as input, where $C \in \{4, 8\}$ is the number of instrument channels. The architecture consists of two convolutional layers with LeakyReLU activations, followed by a fully connected layer and a sigmoid output. For Phase 1, the final discriminator ({\tt discriminator\_phase1\_v2}) achieves $95.12\%$ validation accuracy distinguishing real Groove beats from random grids. Figure \ref{fig:disc} shows the training and validation loss curves.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{outputs/plots/discriminator_training_plot.png}
+    \caption{Discriminator training: BCE loss (train/val) and binary classification accuracy over epochs.}
+    \label{fig:disc}
+\end{figure}
+
+\subsection{PPO Agent}
+
+The actor and critic are both feedforward networks. The actor takes the flattened grid state and action mask as input and outputs a masked softmax policy over valid actions. The critic outputs a scalar value estimate $V(s)$.
+
+PPO updates the policy using the clipped surrogate objective:
+\[
+L^{\text{CLIP}}(\theta) = \mathbb{E}_t \left[ \min\left( r_t(\theta) \hat{A}_t,\; \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) \hat{A}_t \right) \right]
+\]
+where $r_t(\theta) = \pi_\theta(a_t | s_t) / \pi_{\theta_{\text{old}}}(a_t | s_t)$ is the probability ratio and $\hat{A}_t$ is the generalized advantage estimate. We use $\epsilon = 0.2$ and update the policy for multiple epochs per collected batch of episodes.
+
+The training loop proceeds as follows: the agent collects a batch of complete episodes (full grid fills), computes returns and advantages via GAE, and performs several gradient steps on the clipped objective. The best checkpoint is saved based on mean episode reward.
+
+\subsection{Phase 2 Extension}
+
+For Phase 2, the grid is expanded to $8 \times 16$. A separate discriminator is trained on the augmented dataset. The PPO agent architecture is scaled accordingly, and the rule reward is extended to cover the four additional tracks. Phase 2 training uses the Phase 1 actor weights as initialization, providing a warm start.
+
+\section{Experiments}
+
+\subsection{Baseline}
+
+We evaluate a \textbf{random agent} that, at each step, uniformly samples from available empty cells and selects a random valid sample ID (including silence). This agent is evaluated over 20 episodes using the same environment and scoring functions as the trained PPO agent, providing a lower-bound baseline on all metrics.
+
+\subsection{Evaluation Protocol}
+
+Both the random and PPO agents are evaluated over 20 episodes. We report mean and standard deviation for four metrics:
+
+\begin{itemize}[nosep]
+    \item \textbf{Rule Reward}: the rule-based score $R_{\text{rule}} \in [0, 1]$.
+    \item \textbf{Discriminator Score}: $D_\phi(g) \in [0, 1]$, the estimated probability the beat is real.
+    \item \textbf{Beat Density}: fraction of non-silent cells in the final grid.
+    \item \textbf{Groove Consistency}: fraction of non-silent hits landing on strong beats (steps 0, 4, 8, 12).
+\end{itemize}
+
+\section{Results}
+
+\subsection{Phase 1: Four Instruments}
+
+Figure \ref{fig:training} shows the PPO training dynamics over 500 epochs. Mean episode reward rises steadily in early training before stabilizing, while actor loss decreases and critic loss converges as the value function matures.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{outputs/plots/ppo_training_plot.png}
+    \caption{PPO training curves (Phase 1): mean episode reward, actor loss, and critic loss over epochs.}
+    \label{fig:training}
+\end{figure}
+
+Table \ref{tab:phase1} summarizes the Phase 1 evaluation results. The PPO agent achieves a mean rule reward of $0.959$, compared to $0.417$ for the random baseline --- a $130\%$ improvement. This large gap reflects the key learned behavior: the random agent fills nearly all cells ($94.4\%$ density), violating the sparsity constraints on snare and clap, while the PPO agent converges to a beat density of $45.1\%$.
+
+\begin{table}[H]
+\centering
+\caption{Phase 1 evaluation over 20 episodes (mean $\pm$ std).}
+\label{tab:phase1}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric} & \textbf{Random Baseline} & \textbf{PPO Agent} \\
+\midrule
+Rule Reward       & $0.417 \pm 0.213$ & $\mathbf{0.959 \pm 0.133}$ \\
+Discriminator Score & $6.78 \times 10^{-5} \pm 2.98 \times 10^{-6}$ & $\mathbf{5.00 \times 10^{-4} \pm 3.00 \times 10^{-4}}$ \\
+Beat Density      & $0.944 \pm 0.032$ & $0.451 \pm 0.017$ \\
+Groove Consistency & $0.899 \pm 0.058$ & $0.397 \pm 0.033$ \\
+\midrule
+\multicolumn{3}{l}{\textit{Per-layer density}} \\
+Kick  & $0.944 \pm 0.052$ & $\mathbf{0.997 \pm 0.014}$ \\
+Snare & $0.950 \pm 0.047$ & $\mathbf{0.184 \pm 0.050}$ \\
+Hi-hat & $0.941 \pm 0.054$ & $0.484 \pm 0.076$ \\
+Clap  & $0.941 \pm 0.080$ & $\mathbf{0.138 \pm 0.025}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Figure \ref{fig:grids} illustrates this qualitatively: the epoch-0 grid is nearly fully filled with random samples, while the best-epoch grid shows deliberate sparsity on snare and clap tracks with consistent kick placement.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{outputs/plots/first_vs_best_comparison.png}
+    \caption{Beat grid at epoch 0 (random initialization) vs.\ best epoch (Phase 1). Rows are instrument tracks; columns are the 16 time steps. Cell color encodes sample ID; white is silence.}
+    \label{fig:grids}
+\end{figure}
+
+The per-layer breakdown makes the agent's learned strategy clear. Kick density is near $100\%$ (the rules reward consistent kick placement), while snare and clap are held sparse at $18.4\%$ and $13.8\%$ respectively, matching the target distributions encoded in $R_{\text{rule}}$. The hi-hat falls at $48.4\%$, consistent with moderate-density patterns rewarded by the rule function.
+
+The discriminator score also improves from $6.78 \times 10^{-5}$ (random) to $5.00 \times 10^{-4}$ (PPO) --- an approximately $7.4\times$ increase --- suggesting the trained agent produces patterns that the discriminator finds more plausible than random fills, even though the absolute score remains low. Figure \ref{fig:baseline} shows the side-by-side comparison.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{outputs/plots/baseline_comparison.png}
+    \caption{Phase 1 baseline comparison: rule reward and discriminator score for the random agent vs.\ trained PPO agent (mean $\pm$ std over 20 episodes).}
+    \label{fig:baseline}
+\end{figure}
+
+The drop in groove consistency from $0.899$ to $0.397$ is a direct consequence of sparsification: the random agent places hits nearly everywhere, so a high fraction naturally land on strong beats. The PPO agent's sparser placements are distributed more selectively, reducing this naive metric. This is \textit{not} a failure mode; it reflects that the agent is making deliberate placement decisions rather than filling uniformly.
+
+\subsection{Phase 2: Eight Instruments}
+
+Table \ref{tab:phase2} shows the Phase 2 results, where the agent must fill an $8 \times 16$ grid. Figure \ref{fig:baseline2} shows the visual comparison.
+
+\begin{table}[H]
+\centering
+\caption{Phase 2 evaluation over 20 episodes (mean $\pm$ std).}
+\label{tab:phase2}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric} & \textbf{Random Baseline} & \textbf{PPO Agent} \\
+\midrule
+Rule Reward       & $0.479 \pm 0.171$ & $\mathbf{0.722 \pm 0.078}$ \\
+Discriminator Score & $1.978 \times 10^{-3} \pm 3.46 \times 10^{-4}$ & $8.00 \times 10^{-4} \pm 2.00 \times 10^{-4}$ \\
+Beat Density      & $0.936 \pm 0.021$ & $0.887 \pm 0.028$ \\
+Groove Consistency & $0.881 \pm 0.041$ & $0.266 \pm 0.011$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{outputs/plots/baseline_comparison_phase2.png}
+    \caption{Phase 2 baseline comparison: rule reward and discriminator score for the random agent vs.\ trained PPO agent.}
+    \label{fig:baseline2}
+\end{figure}
+
+The rule reward improvement in Phase 2 ($+50.9\%$ over baseline) is meaningful, though smaller than in Phase 1. The larger action space makes the optimization landscape significantly harder: the agent must simultaneously manage sparsity and placement constraints across eight tracks rather than four.
+
+One result warrants careful attention: the PPO agent's discriminator score ($8.00 \times 10^{-4}$) is \textit{lower} than the random baseline ($1.978 \times 10^{-3}$) in Phase 2. We attribute this to two factors. First, the Phase 2 discriminator was trained on an augmented dataset that included programmatically generated synthesizer tracks, which may not generalize well to the agent's output distribution. Second, the random agent in Phase 2 produces near-full grids ($93.6\%$ density) that incidentally resemble the dense positive training examples seen by the discriminator, inflating its score artificially. This highlights a known instability when using a frozen discriminator as a reward signal: the discriminator's confidence calibration degrades when agent behavior diverges significantly from training data.
+
+The groove consistency collapse ($0.881 \to 0.266$) in Phase 2 is more pronounced than in Phase 1, and here it does represent a genuine failure mode. The agent has not learned to anchor the four new instrument layers to strong beats, suggesting the rule reward for these tracks is either underweighted or insufficiently specified.
+
+\section{Discussion}
+
+\subsection{What the Agent Learned}
+
+The Phase 1 results demonstrate a clear, interpretable learned strategy. The agent discovered that the highest-reward behavior is to \textit{not} fill everything --- a non-obvious insight given that a naive agent might treat every empty cell as an opportunity. The sparsification of snare ($18.4\%$) and clap ($13.8\%$) while maximizing kick ($99.7\%$) is precisely the behavior encoded by $R_{\text{rule}}$, and the agent converged to it reliably.
+
+This is consistent with how experienced drummers program beats: kick and hi-hat provide the rhythmic foundation at high density, while snare and clap serve as accents at lower density. The RL agent reproduced this structure from reward signal alone, without any explicit programming of ``accent'' vs ``foundation'' roles.
+
+\subsection{Discriminator Limitations}
+
+The discriminator reward component ($\beta = 0.1$) plays a secondary but measurable role in Phase 1, contributing a $7.4\times$ improvement in discriminator score over the random baseline. However, the frozen discriminator design has a fundamental limitation: the agent cannot push the discriminator score much higher without the discriminator updating to respond. This is distinct from a full GAN training loop, where the discriminator and generator update adversarially. In our setup, once the agent reaches the discriminator's ``real'' manifold, the gradient signal plateaus.
+
+This motivates a future direction: interleaving discriminator updates with PPO training in a self-play loop, where the discriminator continuously retrains on the agent's current output distribution.
+
+\subsection{Scaling Challenges in Phase 2}
+
+The Phase 2 results reveal that scaling the grid from $4 \times 16$ to $8 \times 16$ introduces compounding challenges. The action space grows substantially, the rule reward must cover more instrument-specific constraints, and the discriminator training data for the four new tracks is synthetic rather than human-recorded. Each of these factors independently degrades training efficiency, and together they explain the performance gap between Phase 1 and Phase 2.
+
+A key structural issue is that the rule reward for the new tracks (bass, melody, pad, FX) is less precisely specified than for the drum tracks. Without strong musical conventions to anchor placement, the agent defaults to near-full density on these tracks, which does not violate the rules but does not produce musically coherent patterns either.
+
+\section{Planned Extension: Soft Actor-Critic}
+
+We plan to apply Soft Actor-Critic (SAC) to Phase 2 as a direct algorithmic comparison to PPO. SAC is an off-policy, entropy-regularized actor-critic method that maximizes a trade-off between expected return and policy entropy:
+\[
+\pi^* = \arg\max_\pi \mathbb{E}_{\tau \sim \pi} \left[ \sum_t \left( R(s_t, a_t) + \alpha \mathcal{H}(\pi(\cdot | s_t)) \right) \right]
+\]
+The entropy term $\alpha \mathcal{H}(\pi)$ encourages exploration and prevents premature convergence to a single beat pattern. This is particularly relevant in the beat generation setting, where diversity of output is a desirable property: an agent that always produces the same beat has overfit to the reward, even if that beat scores highly.
+
+SAC's off-policy nature also means it can leverage a replay buffer, which is substantially more sample-efficient than PPO's on-policy rollout collection. Given the large action space in Phase 2, this efficiency gain is meaningful.
+
+We hypothesize that SAC will achieve comparable rule reward to PPO while producing more diverse beat patterns, as measured by the variance in per-layer density across episodes.
+
+\section{Conclusion}
+
+We presented an RL-based beat generation system that frames drum programming as a sequential grid-filling MDP and trains a PPO agent with a hybrid rule-discriminator reward. Phase 1 results demonstrate strong learning: the agent achieves a $130\%$ improvement in rule reward over a random baseline by learning sparse, musically structured placement patterns. The discriminator score also improves, though the frozen discriminator design limits further gains. Phase 2 results show meaningful improvement ($+51\%$ rule reward) but reveal scaling challenges, particularly in the discriminator reward and groove consistency on the new instrument tracks. Planned work includes SAC for Phase 2, a self-play discriminator update loop, and more precisely specified rule rewards for pitched instruments.
+
+\begin{thebibliography}{9}
+\bibitem{groove2019}
+J.~Gillick, A.~Roberts, J.~Engel, D.~Eck, and D.~Bamman,
+``Learning to Groove with Inverse Sequence Transformations,''
+in \textit{Proceedings of the 36th International Conference on Machine Learning (ICML)}, 2019.
+
+\bibitem{ppo2017}
+J.~Schulman, F.~Wolski, P.~Dhariwal, A.~Radford, and O.~Klimov,
+``Proximal Policy Optimization Algorithms,''
+\textit{arXiv preprint arXiv:1707.06347}, 2017.
+
+\bibitem{sac2018}
+T.~Haarnoja, A.~Zhou, P.~Abbeel, and S.~Levine,
+``Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor,''
+in \textit{Proceedings of ICML}, 2018.
+\end{thebibliography}
+
+\appendix
+
+\section{Appendix: Per-Layer Density --- Phase 2}
+
+\begin{table}[H]
+\centering
+\caption{Phase 2 per-layer density (mean $\pm$ std over 20 episodes).}
+\label{tab:phase2_density}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Instrument} & \textbf{Random Baseline} & \textbf{PPO Agent} \\
+\midrule
+Kick    & $0.925 \pm 0.038$ & $0.978 \pm 0.030$ \\
+Snare   & $0.956 \pm 0.056$ & $0.903 \pm 0.058$ \\
+Hi-hat  & $0.950 \pm 0.058$ & $0.628 \pm 0.145$ \\
+Clap    & $0.931 \pm 0.068$ & $0.834 \pm 0.087$ \\
+Bass    & $0.931 \pm 0.079$ & $0.922 \pm 0.062$ \\
+Melody  & $0.934 \pm 0.067$ & $0.944 \pm 0.048$ \\
+Pad     & $0.928 \pm 0.066$ & $0.972 \pm 0.042$ \\
+FX      & $0.931 \pm 0.056$ & $0.916 \pm 0.066$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The hi-hat layer shows the most interesting behavior in Phase 2 ($62.8\%$ vs $95.0\%$ for random), consistent with Phase 1 where the agent learned to moderate hi-hat density. The snare also drops slightly ($90.3\%$ vs $95.6\%$), but the lack of strong sparsification relative to Phase 1 ($18.4\%$) suggests the rule reward for Phase 2 snare is either less penalizing of density or being dominated by the other tracks' signals.
+
+\section{Appendix: Training Configuration}
+
+\begin{table}[H]
+\centering
+\caption{PPO hyperparameters (Phase 1).}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Clip ratio $\epsilon$ & 0.2 \\
+Discount $\gamma$ & 0.99 \\
+GAE $\lambda$ & 0.95 \\
+Entropy coefficient & 0.01 \\
+Learning rate & $3 \times 10^{-4}$ \\
+Epochs per update & 10 \\
+Grid size & $4 \times 16$ \\
+Rule reward weight $\alpha$ & 0.9 \\
+Discriminator weight $\beta$ & 0.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}

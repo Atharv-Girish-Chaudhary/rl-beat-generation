@@ -77,6 +77,19 @@ outputs/plots/beat_grid_epoch_*.png
 *.mid
 *.midi
 
+# ===== LaTeX build artifacts =====
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.pdf
+docs/*.toc
+docs/*.lof
+docs/*.lot
+docs/*.fls
+docs/*.fdb_latexmk
+docs/*.synctex.gz
+docs/texput.*
+
 # ===== HPC =====
 # hpc/env.sh contains credentials — never commit it
 hpc/env.sh
