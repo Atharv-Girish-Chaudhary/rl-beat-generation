@@ -26,11 +26,28 @@ from beat_rl.env.reward import compute_reward
 from beat_rl.models.actor import CNNLayerStepSampleActor
 from scripts.generate_audio import generate_beat, render_grid
 
-# ── Constants ─────────────────────────────────────────────────────────────────
-L, T, S = 4, 16, 15
-LAYER_TO_SAMPLES = {i: list(range(1, S + 1)) for i in range(L)}
-LAYER_NAMES = ["Kick", "Snare", "Hihat", "Clap"]
-CHECKPOINT_PATH = REPO_ROOT / "outputs" / "checkpoints" / "actor_best.pth"
+# ── Shared constants ──────────────────────────────────────────────────────────
+T, S = 16, 15
+CHECKPOINTS = REPO_ROOT / "outputs" / "checkpoints"
+
+# ── Phase configuration lookup ────────────────────────────────────────────────
+PHASE_CONFIG = {
+    1: {
+        "L": 4,
+        "layer_names": ["Kick", "Snare", "Hihat", "Clap"],
+        "actor_ckpt": CHECKPOINTS / "actor_phase1_best.pth",
+        "bar_colors": ["#4c72b0", "#dd8452", "#55a868", "#c44e52"],
+    },
+    2: {
+        "L": 8,
+        "layer_names": ["Kick", "Snare", "Hihat", "Clap", "Bass", "Melody", "Pad", "FX"],
+        "actor_ckpt": CHECKPOINTS / "actor_phase2_best.pth",
+        "bar_colors": [
+            "#4c72b0", "#dd8452", "#55a868", "#c44e52",
+            "#8172b2", "#ccb974", "#64b5cd", "#e15759",
+        ],
+    },
+}
 
 
 def _dummy_reward(grid, final, action_coord):
@@ -46,12 +63,16 @@ def _detect_device() -> str:
 
 
 @st.cache_resource
-def load_actor():
+def load_actor(phase: int):
+    """Load actor checkpoint for the given phase. Cached per phase."""
+    cfg = PHASE_CONFIG[phase]
+    L = cfg["L"]
+    layer_to_samples = {i: list(range(1, S + 1)) for i in range(L)}
     device = _detect_device()
     actor = CNNLayerStepSampleActor(
-        L=L, T=T, S=S, env_layer_to_samples=LAYER_TO_SAMPLES
+        L=L, T=T, S=S, env_layer_to_samples=layer_to_samples
     ).to(device)
-    actor.load_state_dict(torch.load(CHECKPOINT_PATH, map_location=device))
+    actor.load_state_dict(torch.load(cfg["actor_ckpt"], map_location=device))
     actor.eval()
     return actor, device
 
@@ -63,23 +84,40 @@ st.title("RL Beat Generation")
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("Controls")
+
+    # Phase selector
+    phase_label = st.radio(
+        "Phase",
+        options=["Phase 1 (4×16)", "Phase 2 (8×16)"],
+        index=0,
+    )
+    phase = 1 if phase_label == "Phase 1 (4×16)" else 2
+
+    st.divider()
+
     bpm = st.slider("BPM", min_value=60, max_value=180, value=120, step=1)
     seed = st.number_input("Seed", value=42, step=1)
     n_bars = st.slider("N Bars", min_value=1, max_value=8, value=4, step=1)
     clicked = st.button("Generate Beat", use_container_width=True)
+
+# ── Resolve phase-specific values ─────────────────────────────────────────────
+cfg = PHASE_CONFIG[phase]
+L = cfg["L"]
+LAYER_NAMES = cfg["layer_names"]
+LAYER_TO_SAMPLES = {i: list(range(1, S + 1)) for i in range(L)}
 
 # ── Main area ─────────────────────────────────────────────────────────────────
 if clicked:
     torch.manual_seed(int(seed))
     np.random.seed(int(seed))
 
-    actor, device = load_actor()
+    actor, device = load_actor(phase)
 
     env = BeatGridEnv(
         L=L, T=T, S=S,
         reward_fn=_dummy_reward,
         layer_to_samples=LAYER_TO_SAMPLES,
-        phase=1,
+        phase=phase,
     )
 
     with st.spinner("Generating beat..."):
@@ -91,7 +129,8 @@ if clicked:
     cmap = matplotlib.colormaps["viridis"].copy()
     cmap.set_under("white")
 
-    fig, ax = plt.subplots(figsize=(10, 3.5))
+    fig_h = max(3.5, L * 0.55)  # taller figure for Phase 2
+    fig, ax = plt.subplots(figsize=(10, fig_h))
     cax = ax.imshow(grid, cmap=cmap, aspect="auto", vmin=0.1, vmax=15)
 
     ax.set_xticks(np.arange(T))
@@ -129,7 +168,7 @@ if clicked:
     # ── Evaluation metrics ────────────────────────────────────────────────────
     st.subheader("Evaluation Metrics")
 
-    rule_reward = compute_reward(grid, final=True, phase=1)
+    rule_reward = compute_reward(grid, final=True, phase=phase)
 
     beat_density = float(np.sum(grid > 0)) / (L * T)
 
@@ -146,11 +185,12 @@ if clicked:
     col2.metric("Beat Density", f"{beat_density:.1%}")
     col3.metric("Groove Consistency", f"{groove_consistency:.3f}")
 
-    fig2, ax2 = plt.subplots(figsize=(5, 3))
-    ax2.bar(LAYER_NAMES, per_layer_density, color=["#4c72b0", "#dd8452", "#55a868", "#c44e52"])
+    fig2, ax2 = plt.subplots(figsize=(max(5, L * 0.9), 3))
+    ax2.bar(LAYER_NAMES, per_layer_density, color=cfg["bar_colors"])
     ax2.set_ylabel("Density (active steps / 16)")
     ax2.set_ylim(0, 1)
     ax2.set_title("Per-Layer Density")
+    plt.xticks(rotation=30, ha="right")
     plt.tight_layout()
     st.pyplot(fig2)
     plt.close(fig2)

@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """
-evaluate.py — Evaluate the trained Phase 1 beat-generation agent across N episodes.
+evaluate.py — Evaluate the trained beat-generation agent across N episodes.
+
+Supports Phase 1 (4-layer, 4×16 grid) and Phase 2 (8-layer, 8×16 grid).
 
 Metrics computed per episode:
   discriminator_score  — P(real) from BeatDiscriminator.sigmoid(logit)
   rule_reward          — rule-based score from compute_reward (no discriminator)
-  beat_density         — fraction of non-silent cells across the full 4×16 grid
+  beat_density         — fraction of non-silent cells across the full L×16 grid
   groove_consistency   — fraction of all hits that land on strong beats (steps 0,4,8,12)
   per_layer_density    — beat density broken down by instrument layer
 
 Outputs:
   • Console: aligned summary table
-  • File:    outputs/evaluation_report.json
+  • File (Phase 1): outputs/evaluation_report.json
+  • File (Phase 2): outputs/evaluation_report_phase2.json
 
 Usage:
   python evaluation/evaluate.py
+  python evaluation/evaluate.py --phase 2
   python evaluation/evaluate.py --n_episodes 50 --seed 7
-  python evaluation/evaluate.py --checkpoint_dir outputs/checkpoints/ --n_episodes 10
+  python evaluation/evaluate.py --phase 2 --checkpoint_dir outputs/checkpoints/ --n_episodes 10
 """
 
 import argparse
@@ -37,16 +41,27 @@ from beat_rl.models.actor import CNNLayerStepSampleActor
 from beat_rl.models.discriminator import BeatDiscriminator
 
 # ── Phase 1 constants (must match train_ppo.py) ───────────────────────────────
+_PHASE1_LAYER_NAMES = ["kick", "snare", "hihat", "clap"]
+_PHASE1_L, _PHASE1_T, _PHASE1_S = 4, 16, 15
 
-LAYER_NAMES = ["kick", "snare", "hihat", "clap"]
-L, T, S = 4, 16, 15
-LAYER_TO_SAMPLES = {i: list(range(1, S + 1)) for i in range(L)}
+# ── Phase 2 constants ─────────────────────────────────────────────────────────
+_PHASE2_LAYER_NAMES = ["kick", "snare", "hihat", "clap", "bass", "melody", "pad", "fx"]
+_PHASE2_L, _PHASE2_T, _PHASE2_S = 8, 16, 15
 
 # Strong-beat steps in a 16-step bar (quarter notes in 4/4 time)
 STRONG_BEATS = {0, 4, 8, 12}
 
-# Default output path
-DEFAULT_REPORT_PATH = REPO_ROOT / "outputs" / "evaluation_report.json"
+# Default output paths
+_DEFAULT_REPORT_P1 = REPO_ROOT / "outputs" / "evaluation_report.json"
+_DEFAULT_REPORT_P2 = REPO_ROOT / "outputs" / "evaluation_report_phase2.json"
+
+
+# ── Module-level phase state (set during main()) ──────────────────────────────
+# These are set once at startup so metric helpers don't need extra arguments.
+LAYER_NAMES: list = _PHASE1_LAYER_NAMES
+L: int = _PHASE1_L
+T: int = _PHASE1_T
+S: int = _PHASE1_S
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -106,7 +121,7 @@ def metric_groove_consistency(grid: np.ndarray) -> float:
 
 
 def metric_per_layer_density(grid: np.ndarray) -> dict:
-    """Fraction of active steps per instrument layer."""
+    """Fraction of active steps per instrument layer (uses active LAYER_NAMES)."""
     return {
         name: float(np.sum(grid[i] > 0) / T)
         for i, name in enumerate(LAYER_NAMES)
@@ -153,12 +168,12 @@ def _bar(value: float, width: int = 20) -> str:
     return "█" * filled + "░" * (width - filled)
 
 
-def print_summary(summary: dict, n_episodes: int) -> None:
+def print_summary(summary: dict, n_episodes: int, phase: int) -> None:
     W = 64
     print()
     print("╔" + "═" * (W - 2) + "╗")
     print(f"║{'RL Beat Agent — Evaluation Report':^{W-2}}║")
-    print(f"║{f'({n_episodes} episodes)':^{W-2}}║")
+    print(f"║{f'Phase {phase}  ({n_episodes} episodes)':^{W-2}}║")
     print("╠" + "═" * (W - 2) + "╣")
 
     scalar_rows = [
@@ -190,8 +205,14 @@ def print_summary(summary: dict, n_episodes: int) -> None:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    global LAYER_NAMES, L, T, S  # allow metric helpers to see phase-specific values
+
     parser = argparse.ArgumentParser(
-        description="Evaluate the trained Phase 1 beat agent across N episodes."
+        description="Evaluate the trained beat agent across N episodes (Phase 1 or 2)."
+    )
+    parser.add_argument(
+        "--phase", type=int, default=1, choices=[1, 2],
+        help="Which training phase to evaluate (default: 1)",
     )
     parser.add_argument(
         "--n_episodes", type=int, default=20,
@@ -203,15 +224,40 @@ def main():
     )
     parser.add_argument(
         "--checkpoint_dir", default=str(REPO_ROOT / "outputs" / "checkpoints"),
-        help="Directory containing actor_best.pth and discriminator_phase1_v2.pt",
+        help="Directory containing actor/discriminator checkpoints",
     )
     parser.add_argument(
-        "--output", default=str(DEFAULT_REPORT_PATH),
-        help=f"Path to write JSON report (default: {DEFAULT_REPORT_PATH})",
+        "--output", default=None,
+        help="Path to write JSON report (defaults to phase-appropriate path)",
     )
     args = parser.parse_args()
 
     ckpt_dir = Path(args.checkpoint_dir)
+
+    # ── Configure phase-specific constants ───────────────────────────────────
+    if args.phase == 2:
+        LAYER_NAMES = _PHASE2_LAYER_NAMES
+        L = _PHASE2_L
+        T = _PHASE2_T
+        S = _PHASE2_S
+        actor_filename      = "actor_phase2_best.pth"
+        disc_filename       = "discriminator_phase2.pt"
+        disc_d_ff           = 128
+        default_report_path = _DEFAULT_REPORT_P2
+        print("Phase 2 evaluation (8-layer, 8×16 grid)")
+    else:
+        LAYER_NAMES = _PHASE1_LAYER_NAMES
+        L = _PHASE1_L
+        T = _PHASE1_T
+        S = _PHASE1_S
+        actor_filename      = "actor_best.pth"
+        disc_filename       = "discriminator_phase1_v2.pt"
+        disc_d_ff           = 128
+        default_report_path = _DEFAULT_REPORT_P1
+        print("Phase 1 evaluation (4-layer, 4×16 grid)")
+
+    LAYER_TO_SAMPLES = {i: list(range(1, S + 1)) for i in range(L)}
+    out_path = Path(args.output) if args.output else default_report_path
 
     # ── Seed ─────────────────────────────────────────────────────────────────
     if args.seed is not None:
@@ -228,7 +274,7 @@ def main():
     print(f"Device: {device}")
 
     # ── Load actor ───────────────────────────────────────────────────────────
-    actor_path = ckpt_dir / "actor_best.pth"
+    actor_path = ckpt_dir / actor_filename
     if not actor_path.exists():
         print(f"ERROR: actor checkpoint not found at {actor_path}")
         sys.exit(1)
@@ -241,16 +287,14 @@ def main():
     print(f"Actor  : {actor_path}")
 
     # ── Load discriminator ────────────────────────────────────────────────────
-    # discriminator_phase1_v2.pt is trained with num_instruments=L=4, d_ff=128,
-    # and is the checkpoint that was active during Phase 1 PPO training.
-    disc_path = ckpt_dir / "discriminator_phase1_v2.pt"
+    disc_path = ckpt_dir / disc_filename
     if not disc_path.exists():
         print(f"ERROR: discriminator checkpoint not found at {disc_path}")
         sys.exit(1)
 
     disc = BeatDiscriminator(
         num_instruments=L, num_steps=T,
-        d_model=64, num_heads=4, num_blocks=2, d_ff=128
+        d_model=64, num_heads=4, num_blocks=2, d_ff=disc_d_ff
     ).to(device)
     disc.load_state_dict(torch.load(disc_path, map_location=device))
     disc.eval()
@@ -261,7 +305,7 @@ def main():
         L=L, T=T, S=S,
         reward_fn=_dummy_reward,
         layer_to_samples=LAYER_TO_SAMPLES,
-        phase=1,
+        phase=args.phase,
     )
 
     # ── Run episodes ──────────────────────────────────────────────────────────
@@ -274,9 +318,9 @@ def main():
         episode_results.append(metrics)
 
         # Progress line
-        disc_s  = f"{metrics['discriminator_score']:.3f}"
-        rule_s  = f"{metrics['rule_reward']:.3f}"
-        dens_s  = f"{metrics['beat_density']:.3f}"
+        disc_s   = f"{metrics['discriminator_score']:.3f}"
+        rule_s   = f"{metrics['rule_reward']:.3f}"
+        dens_s   = f"{metrics['beat_density']:.3f}"
         groove_s = f"{metrics['groove_consistency']:.3f}"
         print(
             f"  ep {ep+1:>3}/{args.n_episodes}"
@@ -286,14 +330,14 @@ def main():
 
     # ── Aggregate & display ───────────────────────────────────────────────────
     summary = aggregate(episode_results)
-    print_summary(summary, args.n_episodes)
+    print_summary(summary, args.n_episodes, phase=args.phase)
 
     # ── Save JSON report ──────────────────────────────────────────────────────
-    out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     report = {
         "config": {
+            "phase":           args.phase,
             "n_episodes":      args.n_episodes,
             "seed":            args.seed,
             "checkpoint_dir":  str(ckpt_dir),

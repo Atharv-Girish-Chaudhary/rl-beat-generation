@@ -1,0 +1,27 @@
+env:
+  L: 8                  # num_instruments (was 4 in phase 1)
+  T: 16
+  S: 15
+  num_instruments: 8    # explicit alias kept in sync with L
+  phase: 2
+
+training:
+  epochs: 500           # default; override at runtime via CLI
+  episodes_per_epoch: 32
+  gamma: 0.99
+  lam: 0.95
+  clip_ratio: 0.2
+  pi_lr: 3.0e-4
+  v_lr: 1.0e-3
+  train_pi_iters: 4
+  train_v_iters: 4
+  entropy_coef: 0.05
+  grad_clip_norm: 0.5
+
+discriminator:
+  path: outputs/checkpoints/discriminator_phase2_best.pth
+
+outputs:
+  checkpoint_dir: outputs/checkpoints
+  best_actor_path: outputs/checkpoints/actor_phase2_best.pth
+  plot_dir: outputs/plots/phase2

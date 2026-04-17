@@ -43,7 +43,7 @@ def render_grid(grid, epoch, save_dir="outputs/plots", ax=None):
     ax.set_ylabel('Layer (Instrument)')
     ax.set_xlabel('Time Step')
     ax.set_yticks(np.arange(grid.shape[0]))
-    ax.set_yticklabels(['Kick', 'Snare', 'HiHat', 'Clap'][:grid.shape[0]])
+    ax.set_yticklabels(['Kick', 'Snare', 'HiHat', 'Clap', 'Bass', 'Melody', 'Pad', 'FX'][:grid.shape[0]])
     ax.set_xticks(np.arange(0, grid.shape[1], 4))
     ax.grid(color='black', linestyle='-', linewidth=0.5, axis='x')
     
@@ -64,7 +64,8 @@ def train_ppo(
     train_v_iters: int = 4,
     alpha: float = 0.7,
     beta: float = 0.3,
-    device: str = "cpu"
+    device: str = "cpu",
+    phase: int = 1
 ):
     print("--- 🧠 Beat Generation PPO Pipeline ---")
     if torch.cuda.is_available():
@@ -73,24 +74,26 @@ def train_ppo(
         device = "mps"
     print(f"Accelerating on Device: {device}")
 
-    # Phase 1 parameters
-    L, T, S = 4, 16, 15
+    # Phase parameters
+    L = 4 if phase == 1 else 8
+    T, S = 16, 15
     layer_to_samples = {i: list(range(1, 16)) for i in range(L)}
 
     # Optionally load discriminator
     disc = None
-    disc_path = _REPO_ROOT / "outputs" / "checkpoints" / "discriminator_phase1_v2.pt"
+    ckpt_name = "discriminator_phase1_v2.pt" if phase == 1 else "discriminator_phase2.pt"
+    disc_path = _REPO_ROOT / "outputs" / "checkpoints" / ckpt_name
     if disc_path.exists():
-        print("Loading Pre-trained Discriminator...")
+        print(f"Loading Pre-trained Discriminator: {ckpt_name}...")
         disc = BeatDiscriminator(num_instruments=L, num_steps=T, d_model=64, num_heads=4, num_blocks=2, d_ff=128).to(device)
         disc.load_state_dict(torch.load(str(disc_path), map_location=device))
         disc.eval()
 
     # Create Environment
     def r_fn(grid, final, action_coord):
-        return compute_reward(grid, final, action_coord, phase=1, discriminator=disc, alpha=alpha, beta=beta)
+        return compute_reward(grid, final, action_coord, phase=phase, discriminator=disc, alpha=alpha, beta=beta)
 
-    env = BeatGridEnv(L=L, T=T, S=S, reward_fn=r_fn, layer_to_samples=layer_to_samples, phase=1)
+    env = BeatGridEnv(L=L, T=T, S=S, reward_fn=r_fn, layer_to_samples=layer_to_samples, phase=phase)
 
     # Initialize Actor & Critic
     actor = CNNLayerStepSampleActor(L=L, T=T, S=S, env_layer_to_samples=layer_to_samples).to(device)
@@ -106,8 +109,12 @@ def train_ppo(
     first_grid = None
     first_reward = 0.0
     best_grid = None
-    os.makedirs("outputs/checkpoints", exist_ok=True)
-    os.makedirs("outputs/plots", exist_ok=True)
+    ckpt_dir  = _REPO_ROOT / "outputs" / "checkpoints"
+    plot_dir  = _REPO_ROOT / "outputs" / "plots"
+    actor_ckpt_path  = ckpt_dir / f"actor_phase{phase}_best.pth"
+    critic_ckpt_path = ckpt_dir / f"critic_phase{phase}_best.pth"
+    os.makedirs(ckpt_dir, exist_ok=True)
+    os.makedirs(plot_dir, exist_ok=True)
 
     print("\nCommencing PPO Training Loop...")
     
@@ -167,7 +174,7 @@ def train_ppo(
             best_ep_idx = int(np.argmax(epoch_rewards))
             first_grid = epoch_grids[best_ep_idx]
             first_reward = epoch_rewards[best_ep_idx]
-            render_grid(first_grid, epoch=0)
+            render_grid(first_grid, epoch=0, save_dir=str(plot_dir))
 
         # Save best model checkpoint (uses best episode grid, not last episode)
         if mean_ep_reward > best_reward:
@@ -175,10 +182,10 @@ def train_ppo(
             best_epoch = epoch
             best_ep_idx = int(np.argmax(epoch_rewards))
             best_grid = epoch_grids[best_ep_idx]
-            torch.save(actor.state_dict(), "outputs/checkpoints/actor_best.pth")
-            torch.save(critic.state_dict(), "outputs/checkpoints/critic_best.pth")
-            render_grid(best_grid, epoch=epoch)
-            print(f"  ✅ New best model saved! (Reward: {best_reward:.3f})")
+            torch.save(actor.state_dict(), str(actor_ckpt_path))
+            torch.save(critic.state_dict(), str(critic_ckpt_path))
+            render_grid(best_grid, epoch=epoch, save_dir=str(plot_dir))
+            print(f"  ✅ New best model saved → {actor_ckpt_path.name}  (Reward: {best_reward:.3f})")
 
         # Optimization Data Prep
         obs_t = torch.tensor(np.array(obs_buf), dtype=torch.float32).to(device)
@@ -242,7 +249,7 @@ def train_ppo(
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig("outputs/plots/ppo_training_plot.png")
+    plt.savefig(str(plot_dir / "ppo_training_plot.png"))
     plt.close()
     
     # Generate Side-by-Side Comparison: First Epoch vs Best Epoch
@@ -258,17 +265,18 @@ def train_ppo(
         
         fig.suptitle('Beat Grid Evolution: First vs Best', fontsize=16, fontweight='bold', y=1.02)
         plt.tight_layout()
-        plt.savefig("outputs/plots/first_vs_best_comparison.png", bbox_inches='tight')
+        plt.savefig(str(plot_dir / "first_vs_best_comparison.png"), bbox_inches='tight')
         plt.close()
         
         # Save standalone grid PNGs for epoch 0 and best
-        render_grid(first_grid, epoch=0)
-        render_grid(best_grid, epoch=best_epoch)
+        render_grid(first_grid, epoch=0, save_dir=str(plot_dir))
+        render_grid(best_grid, epoch=best_epoch, save_dir=str(plot_dir))
     
     print(f"\nPPO training finished. Best model at Epoch {best_epoch} (Reward: {best_reward:.3f}).")
-    print(f"Saved: outputs/checkpoints/actor_best.pth, outputs/checkpoints/critic_best.pth")
-    print(f"Saved: outputs/plots/first_vs_best_comparison.png")
-    print(f"Saved: outputs/plots/beat_grid_epoch_0.png, outputs/plots/beat_grid_epoch_{best_epoch}.png")
+    print(f"Saved: {actor_ckpt_path}")
+    print(f"Saved: {critic_ckpt_path}")
+    print(f"Saved: {plot_dir / 'first_vs_best_comparison.png'}")
+    print(f"Saved: {plot_dir / 'beat_grid_epoch_0.png'}, {plot_dir / f'beat_grid_epoch_{best_epoch}.png'}")
     return history
 
 if __name__ == "__main__":
@@ -280,6 +288,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--episodes_per_epoch", type=int, default=32)
     parser.add_argument("--device", type=str, default="cpu")
+    parser.add_argument("--phase", type=int, default=1, choices=[1, 2], help="Phase 1 (L=4) or Phase 2 (L=8)")
     args = parser.parse_args()
 
-    train_ppo(epochs=args.epochs, episodes_per_epoch=args.episodes_per_epoch, device=args.device)
+    train_ppo(epochs=args.epochs, episodes_per_epoch=args.episodes_per_epoch, device=args.device, phase=args.phase)

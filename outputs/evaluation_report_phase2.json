@@ -1,0 +1,384 @@
+{
+  "config": {
+    "phase": 2,
+    "n_episodes": 20,
+    "seed": null,
+    "checkpoint_dir": "/Users/atharvchaudhary/GitHub/rl-beat-generation/outputs/checkpoints",
+    "actor": "/Users/atharvchaudhary/GitHub/rl-beat-generation/outputs/checkpoints/actor_phase2_best.pth",
+    "discriminator": "/Users/atharvchaudhary/GitHub/rl-beat-generation/outputs/checkpoints/discriminator_phase2.pt"
+  },
+  "summary": {
+    "discriminator_score": {
+      "mean": 0.0008,
+      "std": 0.0002
+    },
+    "rule_reward": {
+      "mean": 0.7215,
+      "std": 0.0781
+    },
+    "beat_density": {
+      "mean": 0.8871,
+      "std": 0.0275
+    },
+    "groove_consistency": {
+      "mean": 0.266,
+      "std": 0.0112
+    },
+    "per_layer_density": {
+      "kick": {
+        "mean": 0.9781,
+        "std": 0.0298
+      },
+      "snare": {
+        "mean": 0.9031,
+        "std": 0.0575
+      },
+      "hihat": {
+        "mean": 0.6281,
+        "std": 0.1445
+      },
+      "clap": {
+        "mean": 0.8344,
+        "std": 0.0868
+      },
+      "bass": {
+        "mean": 0.9219,
+        "std": 0.0621
+      },
+      "melody": {
+        "mean": 0.9437,
+        "std": 0.048
+      },
+      "pad": {
+        "mean": 0.9719,
+        "std": 0.0418
+      },
+      "fx": {
+        "mean": 0.9156,
+        "std": 0.0664
+      }
+    }
+  },
+  "episodes": [
+    {
+      "discriminator_score": 0.0005460796528495848,
+      "rule_reward": 0.75,
+      "beat_density": 0.9140625,
+      "groove_consistency": 0.2564102564102564,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.8125,
+        "hihat": 0.75,
+        "clap": 1.0,
+        "bass": 0.9375,
+        "melody": 0.875,
+        "pad": 1.0,
+        "fx": 1.0
+      }
+    },
+    {
+      "discriminator_score": 0.0007408426026813686,
+      "rule_reward": 0.76,
+      "beat_density": 0.8359375,
+      "groove_consistency": 0.2523364485981308,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.875,
+        "hihat": 0.5,
+        "clap": 0.875,
+        "bass": 0.875,
+        "melody": 0.875,
+        "pad": 0.9375,
+        "fx": 0.8125
+      }
+    },
+    {
+      "discriminator_score": 0.0011776547180488706,
+      "rule_reward": 0.73,
+      "beat_density": 0.9140625,
+      "groove_consistency": 0.26495726495726496,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 1.0,
+        "hihat": 0.6875,
+        "clap": 0.9375,
+        "bass": 0.875,
+        "melody": 0.9375,
+        "pad": 1.0,
+        "fx": 0.875
+      }
+    },
+    {
+      "discriminator_score": 0.0010939883068203926,
+      "rule_reward": 0.5700000000000001,
+      "beat_density": 0.921875,
+      "groove_consistency": 0.2711864406779661,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 0.875,
+        "clap": 0.75,
+        "bass": 1.0,
+        "melody": 0.875,
+        "pad": 1.0,
+        "fx": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 0.0007999444496817887,
+      "rule_reward": 0.76,
+      "beat_density": 0.8984375,
+      "groove_consistency": 0.25217391304347825,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.875,
+        "hihat": 0.6875,
+        "clap": 0.875,
+        "bass": 0.875,
+        "melody": 1.0,
+        "pad": 0.9375,
+        "fx": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 0.0011197419371455908,
+      "rule_reward": 0.5700000000000001,
+      "beat_density": 0.90625,
+      "groove_consistency": 0.2672413793103448,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 0.8125,
+        "clap": 0.75,
+        "bass": 1.0,
+        "melody": 0.9375,
+        "pad": 1.0,
+        "fx": 0.8125
+      }
+    },
+    {
+      "discriminator_score": 0.0006146391970105469,
+      "rule_reward": 0.76,
+      "beat_density": 0.859375,
+      "groove_consistency": 0.2636363636363636,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 0.3125,
+        "clap": 0.8125,
+        "bass": 0.9375,
+        "melody": 0.9375,
+        "pad": 1.0,
+        "fx": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 0.0006897193379700184,
+      "rule_reward": 0.76,
+      "beat_density": 0.8671875,
+      "groove_consistency": 0.25225225225225223,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.8125,
+        "hihat": 0.5625,
+        "clap": 0.9375,
+        "bass": 0.75,
+        "melody": 1.0,
+        "pad": 0.875,
+        "fx": 1.0
+      }
+    },
+    {
+      "discriminator_score": 0.000831371289677918,
+      "rule_reward": 0.76,
+      "beat_density": 0.875,
+      "groove_consistency": 0.26785714285714285,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.9375,
+        "hihat": 0.5625,
+        "clap": 0.8125,
+        "bass": 1.0,
+        "melody": 0.9375,
+        "pad": 1.0,
+        "fx": 0.8125
+      }
+    },
+    {
+      "discriminator_score": 0.0007254708325490355,
+      "rule_reward": 0.77,
+      "beat_density": 0.8515625,
+      "groove_consistency": 0.27522935779816515,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.875,
+        "hihat": 0.5,
+        "clap": 0.8125,
+        "bass": 0.9375,
+        "melody": 0.9375,
+        "pad": 0.9375,
+        "fx": 0.8125
+      }
+    },
+    {
+      "discriminator_score": 0.0008145009633153677,
+      "rule_reward": 0.75,
+      "beat_density": 0.90625,
+      "groove_consistency": 0.25862068965517243,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 1.0,
+        "hihat": 0.625,
+        "clap": 0.8125,
+        "bass": 1.0,
+        "melody": 0.9375,
+        "pad": 1.0,
+        "fx": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 0.0008321217610500753,
+      "rule_reward": 0.78,
+      "beat_density": 0.875,
+      "groove_consistency": 0.26785714285714285,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.875,
+        "hihat": 0.625,
+        "clap": 0.75,
+        "bass": 0.9375,
+        "melody": 1.0,
+        "pad": 0.9375,
+        "fx": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 0.0006650846335105598,
+      "rule_reward": 0.76,
+      "beat_density": 0.859375,
+      "groove_consistency": 0.2909090909090909,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 0.9375,
+        "hihat": 0.5,
+        "clap": 0.8125,
+        "bass": 0.9375,
+        "melody": 0.9375,
+        "pad": 0.875,
+        "fx": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 0.0007060216157697141,
+      "rule_reward": 0.77,
+      "beat_density": 0.90625,
+      "groove_consistency": 0.25862068965517243,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.875,
+        "hihat": 0.6875,
+        "clap": 0.8125,
+        "bass": 1.0,
+        "melody": 0.9375,
+        "pad": 1.0,
+        "fx": 0.9375
+      }
+    },
+    {
+      "discriminator_score": 0.0009882069425657392,
+      "rule_reward": 0.78,
+      "beat_density": 0.8828125,
+      "groove_consistency": 0.2831858407079646,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.8125,
+        "hihat": 0.6875,
+        "clap": 0.8125,
+        "bass": 0.875,
+        "melody": 1.0,
+        "pad": 1.0,
+        "fx": 0.875
+      }
+    },
+    {
+      "discriminator_score": 0.0007960810326039791,
+      "rule_reward": 0.76,
+      "beat_density": 0.8671875,
+      "groove_consistency": 0.2882882882882883,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.875,
+        "hihat": 0.5625,
+        "clap": 0.875,
+        "bass": 0.875,
+        "melody": 0.875,
+        "pad": 1.0,
+        "fx": 0.875
+      }
+    },
+    {
+      "discriminator_score": 0.0012581712799146771,
+      "rule_reward": 0.5700000000000001,
+      "beat_density": 0.8984375,
+      "groove_consistency": 0.25217391304347825,
+      "per_layer_density": {
+        "kick": 0.9375,
+        "snare": 1.0,
+        "hihat": 0.8125,
+        "clap": 0.6875,
+        "bass": 0.875,
+        "melody": 0.875,
+        "pad": 1.0,
+        "fx": 1.0
+      }
+    },
+    {
+      "discriminator_score": 0.0009009925415739417,
+      "rule_reward": 0.56,
+      "beat_density": 0.9375,
+      "groove_consistency": 0.26666666666666666,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.875,
+        "hihat": 0.8125,
+        "clap": 0.875,
+        "bass": 0.9375,
+        "melody": 1.0,
+        "pad": 1.0,
+        "fx": 1.0
+      }
+    },
+    {
+      "discriminator_score": 0.0006789312465116382,
+      "rule_reward": 0.73,
+      "beat_density": 0.9140625,
+      "groove_consistency": 0.26495726495726496,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.9375,
+        "hihat": 0.625,
+        "clap": 1.0,
+        "bass": 0.9375,
+        "melody": 1.0,
+        "pad": 0.9375,
+        "fx": 0.875
+      }
+    },
+    {
+      "discriminator_score": 0.0006640946376137435,
+      "rule_reward": 0.78,
+      "beat_density": 0.8515625,
+      "groove_consistency": 0.26605504587155965,
+      "per_layer_density": {
+        "kick": 1.0,
+        "snare": 0.875,
+        "hihat": 0.375,
+        "clap": 0.6875,
+        "bass": 0.875,
+        "melody": 1.0,
+        "pad": 1.0,
+        "fx": 1.0
+      }
+    }
+  ]
+}

@@ -14,6 +14,7 @@ build/
 .env
 .venv
 venv/
+env/
 
 # ===== Jupyter =====
 .ipynb_checkpoints/
@@ -30,15 +31,23 @@ htmlcov/
 .idea/
 *.swp
 *.swo
+Thumbs.db
 
 # ===== OS =====
 .DS_Store
-Thumbs.db
 
 # ===== Tools =====
 .claude/
+.gemini/
 .ruff_cache/
 .mypy_cache/
+wandb/
+runs/
+
+# ===== Logs =====
+logs/
+*.log
+slurm-*.out
 
 # ===== Project: Data =====
 data/raw/
@@ -49,10 +58,11 @@ data/samples_processed/
 *.npz
 
 # ===== Project: Outputs =====
-# outputs
-logs/
 outputs/checkpoints/
-# ===== Project: Model Weights =====
+outputs/beat_sample.wav
+outputs/plots/beat_grid_epoch_*.png
+
+# ===== Model Weights =====
 *.pt
 *.pth
 *.ckpt
@@ -66,3 +76,20 @@ outputs/checkpoints/
 *.m4a
 *.mid
 *.midi
+
+# ===== LaTeX build artifacts =====
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.pdf
+docs/*.toc
+docs/*.lof
+docs/*.lot
+docs/*.fls
+docs/*.fdb_latexmk
+docs/*.synctex.gz
+docs/texput.*
+
+# ===== HPC =====
+# hpc/env.sh contains credentials — never commit it
+hpc/env.sh

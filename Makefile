@@ -1,5 +1,7 @@
-HPC_REMOTE = explorer
-HPC_PATH   = /scratch/chaudhary.at/rl-beat-generation
+HPC_REMOTE  ?= $(or $(shell echo $$HPC_REMOTE),explorer)
+HPC_USER    ?= $(shell echo $$HPC_USER)
+HPC_SCRATCH ?= $(or $(shell echo $$HPC_SCRATCH),/scratch/$(HPC_USER))
+HPC_PATH     = $(HPC_SCRATCH)/rl-beat-generation
 
 # ── HPC workflow ────────────────────────────────────────────────────────────
 
@@ -15,9 +17,17 @@ hpc-setup:
 hpc-submit:
 	ssh $(HPC_REMOTE) "cd $(HPC_PATH) && bash hpc/submit_jobs.sh"
 
+# Submit Phase 2 discriminator + PPO jobs (chained)
+hpc-submit-p2:
+	ssh $(HPC_REMOTE) "cd $(HPC_PATH) && bash hpc/submit_jobs_phase2.sh"
+
+# Cancel all jobs, then resubmit Phase 2 fresh
+hpc-restart-p2:
+	ssh $(HPC_REMOTE) "scancel -u $(HPC_USER) && cd $(HPC_PATH) && bash hpc/submit_jobs_phase2.sh"
+
 # Check job queue
 hpc-status:
-	ssh $(HPC_REMOTE) "squeue -u chaudhary.at"
+	ssh $(HPC_REMOTE) "squeue -u $(HPC_USER)"
 
 # List recent log files on cluster
 hpc-logs:
@@ -25,7 +35,7 @@ hpc-logs:
 
 # Tail the most recent log file
 hpc-tail:
-	ssh $(HPC_REMOTE) "tail -f \$$(ls -t $(HPC_PATH)/logs/*.out 2>/dev/null | head -1)"
+	ssh $(HPC_REMOTE) "tail -f $$(ls -t $(HPC_PATH)/logs/*.out 2>/dev/null | head -1)"
 
 # Pull outputs/ (checkpoints, plots, WAV) back to local
 hpc-pull:
@@ -37,6 +47,6 @@ hpc-cancel:
 
 # Cancel all jobs, then resubmit fresh
 hpc-restart:
-	ssh $(HPC_REMOTE) "scancel -u chaudhary.at && cd $(HPC_PATH) && bash hpc/submit_jobs.sh"
+	ssh $(HPC_REMOTE) "scancel -u $(HPC_USER) && cd $(HPC_PATH) && bash hpc/submit_jobs.sh"
 
-.PHONY: hpc-sync hpc-setup hpc-submit hpc-status hpc-logs hpc-tail hpc-pull hpc-cancel hpc-restart
+.PHONY: hpc-sync hpc-setup hpc-submit hpc-status hpc-logs hpc-tail hpc-pull hpc-cancel hpc-restart hpc-submit-p2 hpc-restart-p2

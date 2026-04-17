@@ -1,0 +1,26 @@
+env:
+  phase: 2
+
+# Continuous action space: 3 outputs, all in [0, 1]
+action_space:
+  type: continuous
+  dim: 3
+  actions:
+    - reverb_mix       # 0.0 = dry  →  1.0 = fully wet
+    - delay_feedback   # 0.0 = no delay  →  1.0 = max feedback
+    - lpf_cutoff       # 0.0 = fully open  →  1.0 = max cut
+
+training:
+  epochs: 200
+  actor_lr: 3.0e-4
+  critic_lr: 3.0e-4
+  alpha_lr: 3.0e-4      # entropy temperature (auto-tuned)
+  gamma: 0.99
+  tau: 0.005            # Polyak soft-update coefficient
+  buffer_size: 100000
+  batch_size: 256
+  hidden_dim: 256
+
+outputs:
+  checkpoint_dir: outputs/checkpoints
+  best_actor_path: outputs/checkpoints/sac_actor_best.pth

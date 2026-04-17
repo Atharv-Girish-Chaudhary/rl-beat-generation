@@ -1,9 +1,16 @@
 # RL Beat Generation
 
-A PPO agent that composes drum beats by filling a 4×16 grid cell-by-cell, guided by a hybrid reward of hand-crafted musical rules and a transformer discriminator trained on real performances.
+> A PPO agent that composes drum beats by filling an instrument × time grid cell-by-cell, guided by
+> a hybrid reward of hand-crafted musical rules and a transformer discriminator trained on real
+> performances.
 
-**CS 5180 Reinforcement Learning · Northeastern University · Spring 2026**
+**CS 5180 Reinforcement Learning · Northeastern University · Spring 2026**  
 Atharv Chaudhary · Taha Ucar · Yixun Li
+
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.x-red?logo=pytorch)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Tests](https://img.shields.io/badge/Tests-17%20passing-brightgreen)
 
 ---
 
@@ -11,30 +18,50 @@ Atharv Chaudhary · Taha Ucar · Yixun Li
 
 ![First vs Best epoch comparison](outputs/plots/first_vs_best_comparison.png)
 
-*Left: agent at epoch 0. Right: best checkpoint (epoch 209, reward 0.779). Blue = active cell, number = sample ID chosen.*
+*Left: agent at epoch 0. Right: best Phase 1 checkpoint (epoch 486, reward 0.942). Blue = active
+cell, number = sample ID chosen.*
 
-The agent also renders beats to audio. Running `scripts/generate_audio.py` produces a WAV file by
-loading the trained actor, running one inference episode, and mixing the instrument samples from
-`data/samples/` at 16th-note intervals. A 4-bar loop at 120 BPM is saved to `outputs/beat_sample.wav`.
+### Streamlit App
+
+Run the interactive demo locally:
+
+```bash
+conda activate rl-beats
+pip install streamlit
+streamlit run app.py
+```
+
+Opens at `localhost:8501`. Controls:
+
+| Control | Description |
+|---------|-------------|
+| **Phase** | Switch between Phase 1 (4×16) and Phase 2 (8×16) |
+| **BPM** | Tempo (60–180) |
+| **Seed** | Reproducible beat generation |
+| **N Bars** | Loop length (1–8) |
+
+Click **Generate Beat** to produce a grid, hear the audio, and view evaluation metrics live.
 
 ---
 
 ## Architecture
 
-The system frames beat composition as a sequential MDP over a 4×16 grid (4 instrument layers × 16
-16th-note time steps). The agent fills one cell per step until all 64 cells are assigned.
+### Agent & Environment
+
+The system frames beat composition as a sequential MDP over an L×16 grid (L instrument layers × 16
+16th-note time steps). The agent fills one cell per step until all L×16 cells are assigned.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          PPO Agent                                   │
 │                                                                       │
-│   Observation: (L×T×(S+2),) = (1088,) float32                       │
+│   Observation: (L×T×(S+2),) float32                                  │
 │     • Channels 0–14: one-hot sample index per cell                   │
 │     • Channel 15:    silence flag                                     │
 │     • Channel 16:    step_count / max_steps  (temporal progress)     │
 │                                                                       │
 │   ┌──────────────────────────────┐   ┌───────────────────────────┐   │
-│   │       CNNLayerStepSampleActor│   │       CNNBeatCritic        │   │
+│   │   CNNLayerStepSampleActor    │   │       CNNBeatCritic        │   │
 │   │                              │   │                             │   │
 │   │  Conv2d(17,32) → ReLU        │   │  Conv2d(17,32) → ReLU      │   │
 │   │  Conv2d(32,64) → ReLU        │   │  Conv2d(32,64) → ReLU      │   │
@@ -55,9 +82,9 @@ The system frames beat composition as a sequential MDP over a 4×16 grid (4 inst
                               │ action: flat int → (layer, step, sample)
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       BeatGridEnv (Phase 1)                          │
-│  Grid: (4, 16) int64   −1=empty, 0=silence, 1–15=sample index       │
-│  Episode: fill all 64 cells, then terminate                          │
+│               BeatGridEnv (Phase 1: 4×16 / Phase 2: 8×16)           │
+│  Grid: (L, 16) int64   −1=empty, 0=silence, 1–15=sample index       │
+│  Episode: fill all L×16 cells, then terminate                        │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -65,13 +92,13 @@ The system frames beat composition as a sequential MDP over a 4×16 grid (4 inst
 │                         Hybrid Reward                                 │
 │                                                                       │
 │   R = α · R_rules  +  β · R_disc                                     │
-│       (0.9)              (0.1)    ← Phase 1 weights                  │
+│       (0.7)              (0.3)    ← Phase 1 weights (v3)             │
 │                                                                       │
 │   R_rules  (terminal, [0,1]):                                        │
 │     +0.1  kick on step 0                                             │
 │     +0.1  kick on step 8                                             │
 │     +0.1  snare/clap on step 4                                       │
-│     +0.1  snare/clap on step 12                                       │
+│     +0.1  snare/clap on step 12                                      │
 │     +0.2  hi-hat count in [4, 12]                                    │
 │     +0.4  Jaccard similarity (first vs second half) in [0.6, 0.95)  │
 │     −0.01 per off-beat snare/clap hit                                │
@@ -93,26 +120,37 @@ The system frames beat composition as a sequential MDP over a 4×16 grid (4 inst
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Action space factoring.** Instead of sampling from L·T·(S+1) = 1,024 actions flat, the actor
-decomposes each decision into three sequential steps — layer → step → sample — reducing effective
-branching and letting the architecture encode instrument hierarchy explicitly.
+**Action space factoring.** Instead of sampling from L·T·(S+1) actions flat, the actor decomposes
+each decision into three sequential steps — layer → step → sample — reducing effective branching
+and letting the architecture encode instrument hierarchy explicitly.
 
 ---
 
-## Results (Final — v3 checkpoint vs Random Baseline)
+## Current Status
 
-Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` (v3) and `discriminator_phase1_v2`. Comparison against random uniform action baseline evaluated using `evaluation/evaluate_baseline.py`.
+| Phase | Status | Description |
+|-------|--------|-------------|
+| **Phase 1** | ✅ Complete | PPO agent on 4×16 grid, audio generation, Streamlit demo |
+| **Phase 2** | ✅ Complete | 8×16 grid expansion (Bass, Melody, Pad, FX layers added) |
 
-| Metric | Agent (v3) | Random Baseline | Notes |
-|--------|------------|-----------------|-------|
-| Rule reward | **0.9585 ± 0.1330** | 0.4595 ± 0.2019 | Agent learned to follow musical rules |
-| Discriminator score | **0.0005 ± 0.0003** | 0.0001 ± 0.0000 | Both low, but agent learns slightly more structural patterns |
-| Beat density | **0.4508 ± 0.0173** | 0.9305 ± 0.0294 | Agent learned restraint vs random noise barrage |
-| Groove consistency | **0.3971 ± 0.0332** | 0.8641 ± 0.0643 | Random is artificially high due to density |
+---
 
-![Baseline vs Agent Comparison](outputs/plots/baseline_comparison.png)
+## Results
 
-**Per-layer density:**
+### Phase 1 — v3 checkpoint
+
+Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_phase1_best.pth` (v3) and
+`discriminator_phase1_v2`.
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Best training reward | **0.942** | Epoch 486 / 500 |
+| Rule reward (mean ± std) | **0.9585 ± 0.1330** | Across 20 eval episodes |
+| Beat density | **0.4508 ± 0.0173** | Fraction of non-silent cells |
+| Groove consistency | **0.3971 ± 0.0332** | Hits on strong beats (steps 0,4,8,12) / total hits |
+| Discriminator score | **0.0005 ± 0.0003** | sigmoid(discriminator logit) |
+
+**Per-layer density (Phase 1):**
 
 | Instrument | Density | Interpretation |
 |------------|---------|----------------|
@@ -120,6 +158,15 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` 
 | Snare | **0.1844 ± 0.0503** | Learned restraint (was 0.97 in v1) |
 | HiHat | **0.4844 ± 0.0762** | Balanced |
 | Clap | **0.1375 ± 0.0250** | Very sparse — musically realistic |
+
+**Random baseline** (20 episodes, `evaluation/evaluate_baseline.py`):
+
+| Metric | Random Agent | PPO Agent (v3) |
+|--------|-------------|----------------|
+| Rule reward | ~0.10 | **0.9585** |
+| Discriminator score | ~0.50 | **0.0005** |
+| Beat density | ~0.50 | **0.4508** |
+| Groove consistency | ~0.25 | **0.3971** |
 
 **Training progression:**
 
@@ -129,31 +176,23 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` 
 | v2 | α=0.6, β=0.4, 250 ep, weak disc | 0.779 |
 | **v3 (final)** | **α=0.7, β=0.3, 500 ep, disc v2** | **0.942** |
 
----
+### Phase 2 — 8×16 checkpoint
 
-## Demo
+Evaluated over 20 episodes using `evaluation/evaluate.py --phase 2` with `actor_phase2_best.pth`
+and `discriminator_phase2`.
 
-### Streamlit App
-Run the interactive demo locally:
-```bash
-conda activate rl-beats
-pip install streamlit
-streamlit run app.py
-```
+| Metric | Phase 1 (v3) | Phase 2 | Notes |
+|--------|-------------|---------|-------|
+| Rule reward (mean ± std) | 0.9585 ± 0.1330 | **0.7215 ± 0.0781** | Phase 2 lower due to density spam |
+| Beat density | 0.4508 ± 0.0173 | **0.8871 ± 0.0275** | Agent exploits density for reward |
+| Groove consistency | 0.3971 ± 0.0332 | **0.2660 ± 0.0112** | Near random-noise floor (0.25) |
+| Discriminator score | 0.0005 ± 0.0003 | **0.0008 ± 0.0002** | Effectively zero — disc not influencing agent |
 
-Opens at `localhost:8501`. Controls:
-- **BPM** — tempo (60–180)
-- **Seed** — reproducible beat generation
-- **N Bars** — loop length (1–8)
+**Phase 2 per-layer density:** Kick 0.978, Snare 0.903, HiHat **0.628** (learned throttle for hat
+rule), Clap 0.834, Bass 0.922, Melody 0.944, Pad 0.972, FX 0.916.
 
-Click "Generate Beat" to generate a grid, hear the audio, and see evaluation metrics live.
-
----
-
-## Current Status
-
-- Phase 1 complete — PPO agent trained, audio generation working, Streamlit demo live
-- Phase 2 (8×16 grid) and SAC agent (audio FX) are out of scope for this submission
+> ⚠️ **Known issue:** The Phase 2 agent is stuck in a density-spam local optimum.
+> See `docs/phase2_diagnostic.md` for root-cause analysis and proposed fixes.
 
 ---
 
@@ -161,10 +200,11 @@ Click "Generate Beat" to generate a grid, hear the audio, and see evaluation met
 
 ```
 rl-beat-generation/
-├── app.py                                # Streamlit interactive demo
+├── app.py                                # Streamlit interactive demo (Phase 1 + 2)
+│
 ├── beat_rl/                              # Installable package
 │   ├── env/
-│   │   ├── beat_env.py                   # BeatGridEnv (Gymnasium, Phase 1)
+│   │   ├── beat_env.py                   # BeatGridEnv (Gymnasium, Phase 1 & 2)
 │   │   ├── reward.py                     # compute_reward() — rules + discriminator
 │   │   └── visualize_env.py              # Matplotlib grid heatmap
 │   └── models/
@@ -173,15 +213,35 @@ rl-beat-generation/
 │       └── discriminator.py              # BeatDiscriminator (transformer encoder)
 │
 ├── scripts/
-│   ├── train_ppo.py                      # PPO training loop (Phase 1)
-│   ├── train_discriminator.py            # Discriminator pre-training
+│   ├── train_ppo.py                      # PPO training loop (Phase 1 & 2 via --phase flag)
+│   ├── train_discriminator.py            # Discriminator pre-training (Phase 1 & 2 via --phase flag)
 │   ├── process_groove.py                 # Groove MIDI → (N, L, T) binary grids
 │   ├── download_samples.py               # Freesound API sample downloader
 │   └── generate_audio.py                 # Actor inference → WAV rendering
 │
 ├── evaluation/
-│   ├── evaluate.py                       # N-episode eval: rule reward, density, groove
-│   └── evaluate_baseline.py              # Random baseline evaluation and comparison
+│   ├── evaluate.py                       # N-episode eval: rule reward, density, groove (--phase 1|2)
+│   └── evaluate_baseline.py              # Random agent baseline (--phase 1|2)
+│
+├── configs/
+│   ├── ppo_phase1.yaml                   # Phase 1 PPO hyperparameters (4×16)
+│   ├── ppo_phase2.yaml                   # Phase 2 PPO hyperparameters (8×16)
+│   ├── sac.yaml                          # SAC hyperparameters (reserved for future use)
+│   └── discriminator.yaml                # Discriminator training config
+│
+├── hpc/                                  # HPC cluster scripts (SLURM / SSH)
+│   ├── env.sh.example                    # Template — copy to env.sh and fill values
+│   ├── env.sh                            # ⚠ Local only — gitignored
+│   ├── submit_jobs.sh                    # Submit Phase 1 jobs
+│   ├── submit_jobs_phase2.sh             # Submit Phase 2 jobs
+│   ├── cancel_jobs.sh                    # Cancel running jobs
+│   ├── setup_env.sh                      # Remote env setup
+│   ├── sync_to_hpc.sh                    # Push code to cluster
+│   ├── sync_from_hpc.sh                  # Pull outputs from cluster
+│   ├── train_ppo.sbatch                  # SLURM batch script — PPO Phase 1
+│   ├── train_ppo_phase2.sbatch           # SLURM batch script — PPO Phase 2
+│   ├── train_discriminator.sbatch        # SLURM batch script — Discriminator Phase 1
+│   └── train_discriminator_phase2.sbatch # SLURM batch script — Discriminator Phase 2
 │
 ├── notebooks/
 │   ├── train_ppo_colab.ipynb             # Colab PPO training notebook (T4/A100)
@@ -190,34 +250,34 @@ rl-beat-generation/
 │   └── discriminator_notes.ipynb         # Discriminator research notes
 │
 ├── data/
-│   ├── processed/groove_grids.npy        # Pre-processed Groove MIDI grids
-│   ├── raw/groove/                       # Groove MIDI dataset
-│   └── samples/                          # Freesound WAV samples
-│       ├── kick/   (30 samples)
-│       ├── snare/  (30 samples)
-│       ├── hihat/  (25 samples)
-│       ├── clap/   (20 samples)
-│       ├── bass/, melody/, pad/, fx/
+│   ├── processed/groove_grids.npy        # Pre-processed Groove MIDI grids (gitignored)
+│   ├── raw/groove/                       # Groove MIDI dataset (gitignored)
+│   └── samples/                          # Freesound WAV samples (gitignored)
+│       ├── kick/   snare/  hihat/  clap/
+│       ├── bass/   melody/ pad/    fx/
 │       └── {layer}/metadata.json         # ID → filename mapping
 │
 ├── outputs/
-│   ├── checkpoints/
-│   │   ├── actor_best.pth                # Best Phase 1 actor weights (v3, epoch 486)
-│   │   ├── actor_best_v3.pth             # v3 actor checkpoint copy
-│   │   ├── critic_best.pth               # Best Phase 1 critic weights
-│   │   ├── critic_best_v3.pth            # v3 critic checkpoint copy
-│   │   ├── discriminator_phase1_v2.pt    # Discriminator v2 (95.12% val accuracy)
-│   │   └── discriminator_v1.pt           # Discriminator v1
+│   ├── checkpoints/                      # Model weights (gitignored)
+│   │   ├── actor_phase1_best.pth         # Best Phase 1 actor (v3, epoch 486)
+│   │   ├── critic_phase1_best.pth
+│   │   ├── discriminator_phase1_v2.pt    # Phase 1 discriminator (95.12% val acc)
+│   │   ├── actor_phase2_best.pth
+│   │   ├── critic_phase2_best.pth
+│   │   └── discriminator_phase2.pt
 │   ├── plots/
-│   │   ├── baseline_comparison.png       # Bar chart comparing agent vs baseline metrics
-│   │   ├── beat_grid_epoch_*.png         # Per-epoch beat grid snapshots
-│   │   ├── first_vs_best_comparison.png  # Epoch 0 vs best checkpoint comparison
-│   │   └── ppo_training_plot.png         # Training reward curve
-│   ├── beat_sample.wav                   # Most recent generated beat
-│   ├── evaluation_report.json           # Latest agent evaluation results
-│   └── random_baseline_report.json      # Latest baseline evaluation results
+│   │   ├── first_vs_best_comparison.png  # Epoch 0 vs best checkpoint grid
+│   │   ├── ppo_training_plot.png         # Reward / actor loss / critic loss curves
+│   │   ├── discriminator_training_plot.png
+│   │   ├── baseline_comparison.png       # PPO vs random bar chart (Phase 1)
+│   │   └── baseline_comparison_phase2.png
+│   ├── evaluation_report.json            # Phase 1 PPO eval (20 episodes)
+│   ├── evaluation_report_phase2.json     # Phase 2 PPO eval (20 episodes)
+│   ├── random_baseline_report.json       # Phase 1 random baseline
+│   └── random_baseline_report_phase2.json
 │
-├── tests/                                # 17 unit + integration tests (all pass)
+├── tests/                                # 17 unit + integration tests
+│   ├── conftest.py
 │   ├── test_actor.py
 │   ├── test_beat_env.py
 │   ├── test_critic.py
@@ -226,16 +286,52 @@ rl-beat-generation/
 │   ├── test_integration.py
 │   ├── test_process_groove.py
 │   ├── test_reward.py
-│   └── conftest.py
+│   └── test_reward_sanity.py
+│
+├── docs/
+│   ├── beat_report.tex                   # LaTeX project report
+│   ├── beat_report.pdf                   # Compiled PDF (gitignored build artifacts)
+│   ├── phase2_diagnostic.md              # Root-cause analysis of Phase 2 density issue
+│   └── PROGRESS.md                       # Development status tracker
 │
 ├── configs/
-│   ├── ppo_phase1.yaml
-│   └── discriminator.yaml
-├── docs/rl_beat_gen_level1_guide.md
 ├── environment.yml
 ├── requirements.txt
+├── Makefile
 └── setup.py
 ```
+
+---
+
+## HPC Setup
+
+All HPC scripts read three environment variables so no credentials are hard-coded in the repo.
+
+| Variable | Required | Description |
+|---|---|---|
+| `HPC_USER` | ✅ Yes | Your cluster username |
+| `HPC_REMOTE` | No (default: `explorer`) | SSH alias / hostname for the cluster |
+| `HPC_SCRATCH` | No (default: `/scratch/${HPC_USER}`) | Path to scratch directory on the cluster |
+
+**One-time setup:**
+
+```bash
+# 1. Copy the example and fill in your values
+cp hpc/env.sh.example hpc/env.sh
+# Edit hpc/env.sh: set HPC_USER (and optionally HPC_REMOTE / HPC_SCRATCH)
+
+# 2. Source before using any HPC make targets
+source hpc/env.sh
+
+# 3. Use the Makefile as normal
+make hpc-sync        # push code to cluster
+make hpc-submit      # submit Phase 1 training jobs
+make hpc-submit-p2   # submit Phase 2 training jobs
+make hpc-status      # check job queue
+make hpc-pull        # pull outputs back
+```
+
+> `hpc/env.sh` is listed in `.gitignore` and will never be committed.
 
 ---
 
@@ -247,26 +343,41 @@ rl-beat-generation/
 git clone https://github.com/Atharv-Girish-Chaudhary/rl-beat-generation.git
 cd rl-beat-generation
 
-conda create -n beat_env python=3.10
-conda activate beat_env
+conda create -n rl-beats python=3.10
+conda activate rl-beats
 
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install -e .
 ```
 
-Checkpoints and processed data are committed to the repo — no data pipeline step is required to
-run inference or evaluation.
+Checkpoints and processed data are gitignored — run training scripts or pull from HPC to populate
+`outputs/checkpoints/`.
 
 ---
 
 ## Usage
 
-**Retrain from scratch** (pre-trained discriminator already included):
+**Run the Streamlit app:**
 
 ```bash
-python scripts/train_ppo.py
-# Saves actor_best.pth, critic_best.pth to outputs/checkpoints/
-# Saves training curves and grid PNGs to outputs/plots/
+conda activate rl-beats
+streamlit run app.py
+# Opens at localhost:8501 — use the Phase selector to switch between 4×16 and 8×16
+```
+
+**Retrain from scratch (Phase 1):**
+
+```bash
+conda activate rl-beats
+python scripts/train_ppo.py --phase 1
+# Saves actor_phase1_best.pth, critic_phase1_best.pth to outputs/checkpoints/
+```
+
+**Retrain from scratch (Phase 2):**
+
+```bash
+python scripts/train_ppo.py --phase 2
+# Saves actor_phase2_best.pth, critic_phase2_best.pth to outputs/checkpoints/
 ```
 
 **Generate a beat:**
@@ -276,18 +387,16 @@ python scripts/generate_audio.py --seed 42 --bpm 120 --n_beats 4
 # Writes outputs/beat_sample.wav
 ```
 
-**Evaluate the checkpoint:**
+**Evaluate checkpoints:**
 
 ```bash
-python evaluation/evaluate.py --n_episodes 20
-# Prints summary table, writes outputs/evaluation_report.json
-```
+# Phase 1
+python evaluation/evaluate.py --n_episodes 20 --phase 1
+python evaluation/evaluate_baseline.py --n_episodes 20 --phase 1
 
-**Evaluate the random baseline:**
-
-```bash
-python evaluation/evaluate_baseline.py --n_episodes 20
-# Prints summary table, writes outputs/random_baseline_report.json and outputs/plots/baseline_comparison.png
+# Phase 2
+python evaluation/evaluate.py --n_episodes 20 --phase 2
+python evaluation/evaluate_baseline.py --n_episodes 20 --phase 2
 ```
 
 **Retrain the discriminator** (requires Groove MIDI dataset):
@@ -295,8 +404,24 @@ python evaluation/evaluate_baseline.py --n_episodes 20
 ```bash
 wget https://storage.googleapis.com/magentadata/datasets/groove/groove-v1.0.0-midionly.zip
 unzip groove-v1.0.0-midionly.zip -d data/raw/groove
-python scripts/process_groove.py          # → data/processed/groove_grids.npy
-python scripts/train_discriminator.py     # → outputs/checkpoints/discriminator_best.pth
+python scripts/process_groove.py              # → data/processed/groove_grids.npy
+python scripts/train_discriminator.py --phase 1  # → discriminator_phase1_v2.pt
+python scripts/train_discriminator.py --phase 2  # → discriminator_phase2.pt
+```
+
+**Compile the PDF report** (requires MacTeX / TeX Live):
+
+```bash
+# Output PDF and auxiliary files go into docs/
+pdflatex -output-directory=docs docs/beat_report.tex
+pdflatex -output-directory=docs docs/beat_report.tex  # run twice for cross-references
+```
+
+**Run tests:**
+
+```bash
+pytest tests/ -v
+# 17 unit + integration tests should all pass
 ```
 
 **Colab training** (recommended for GPU access):
@@ -309,7 +434,7 @@ Open `notebooks/train_ppo_colab.ipynb`. Set runtime to T4 GPU. All config is in 
 
 | Member | Contribution |
 |--------|-------------|
-| **Atharv Chaudhary** | PPO training loop, discriminator architecture and pre-training |
+| **Atharv Chaudhary** | PPO training loop, discriminator architecture and pre-training, Phase 2 expansion |
 | **Taha Ucar** | Gymnasium environment, reward function, action masking |
 | **Yixun Li** | Data pipeline (Groove MIDI, Freesound), audio rendering |
 
@@ -318,6 +443,7 @@ Open `notebooks/train_ppo_colab.ipynb`. Set runtime to T4 GPU. All config is in 
 ## References
 
 - Schulman et al., [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347) (2017)
+- Haarnoja et al., [Soft Actor-Critic: Off-Policy Maximum Entropy Deep RL](https://arxiv.org/abs/1801.01290) (2018)
 - Gillick et al., [Learning to Groove with Inverse Sequence Transformations](https://arxiv.org/abs/1905.06118) (2019) — Groove MIDI Dataset
 - Vaswani et al., [Attention Is All You Need](https://arxiv.org/abs/1706.03762) (2017)
 

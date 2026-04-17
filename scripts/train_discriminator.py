@@ -54,10 +54,11 @@ class _Phase1Dataset(BeatDataset):
 
 def train_discriminator(
     data_path: str = "data/processed/groove_grids.npy",
-    epochs: int = 15,       # Sufficient for simple binary rhythmic classification convergence
+    epochs: int = 5,       # Sufficient for simple binary rhythmic classification convergence
     batch_size: int = 128,
     lr: float = 3e-4,
-    device: str = "cpu"
+    device: str = "cpu",
+    phase: int = 1
 ):
     print("--- 🧠 Discriminator Pytorch Gradient Pipeline ---")
     # Dynamically select optimized hardware acceleration
@@ -77,11 +78,14 @@ def train_discriminator(
     real_grids = np.load(data_path)
     print(f"Raw tensor shape: {real_grids.shape}")
 
-    # Groove MIDI grids have 8 instrument rows; Phase 1 uses only the first 4
-    # (kick, snare, hi-hat, clap).  Slice here so the discriminator is trained
-    # on the same 4×16 representation the PPO agent generates.
-    real_grids = real_grids[:, :4, :]
-    print(f"Phase 1 slice shape: {real_grids.shape}  (kept rows 0–3 of 8)")
+    if phase == 1:
+        # Groove MIDI grids have 8 instrument rows; Phase 1 uses only the first 4
+        # (kick, snare, hi-hat, clap).  Slice here so the discriminator is trained
+        # on the same 4×16 representation the PPO agent generates.
+        real_grids = real_grids[:, :4, :]
+        print(f"Phase 1 slice shape: {real_grids.shape}  (kept rows 0–3 of 8)")
+    else:
+        print(f"Phase 2 processing: utilizing all rows. Shape: {real_grids.shape}")
 
     # Remove all-zero grids from the positive set.
     # The raw data contains ~1345 silent grids (5.86%) which would be trained
@@ -196,7 +200,8 @@ def train_discriminator(
               
         if epoch_val_acc > best_val_acc:
             best_val_acc = epoch_val_acc
-            torch.save(model.state_dict(), "outputs/checkpoints/discriminator_phase1_v2.pt")
+            ckpt_name = "discriminator_phase1_v2.pt" if phase == 1 else "discriminator_phase2.pt"
+            torch.save(model.state_dict(), f"outputs/checkpoints/{ckpt_name}")
             print(f"  -> Checkpoint saved! New best val acc: {best_val_acc:.4f}")
 
     print(f"\nDiscriminator Hardware Training Terminated! Final Optimized Val Accuracy: {best_val_acc:.4f}")
@@ -233,7 +238,13 @@ def train_discriminator(
     print(f"Telemetry visual charts successfully rendered and saved to: {plot_path}")
     
 if __name__ == "__main__":
+    import argparse
     import matplotlib
     # Force headless matplotlib backend to aggressively prevent terminal pop-up freezing during training runs
     matplotlib.use('Agg')
-    train_discriminator()
+    
+    parser = argparse.ArgumentParser(description="Train Discriminator")
+    parser.add_argument("--phase", type=int, default=1, choices=[1, 2], help="Phase 1 (L=4) or Phase 2 (L=8)")
+    args = parser.parse_args()
+    
+    train_discriminator(phase=args.phase)
