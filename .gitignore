@@ -67,4 +67,4 @@ outputs/checkpoints/
 *.mid
 *.midi
 
-hpc/
+# hpc/
