@@ -68,3 +68,4 @@ outputs/checkpoints/
 *.midi
 
 # hpc/
+hpc/env.sh

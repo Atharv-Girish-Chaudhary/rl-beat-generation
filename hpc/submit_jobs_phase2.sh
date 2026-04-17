@@ -4,7 +4,10 @@
 
 set -e
 
-cd /scratch/chaudhary.at/rl-beat-generation
+: "${HPC_USER:?HPC_USER is not set. Source hpc/env.sh first.}"
+: "${HPC_SCRATCH:=/scratch/${HPC_USER}}"
+
+cd ${HPC_SCRATCH}/rl-beat-generation
 
 mkdir -p logs
 

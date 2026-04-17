@@ -4,8 +4,12 @@
 
 set -e
 
-REMOTE=explorer:/scratch/chaudhary.at/rl-beat-generation/outputs/
-LOCAL=/Users/atharvchaudhary/GitHub/rl-beat-generation/outputs/
+: "${HPC_USER:?HPC_USER is not set. Source hpc/env.sh first.}"
+: "${HPC_REMOTE:=explorer}"
+: "${HPC_SCRATCH:=/scratch/${HPC_USER}}"
+
+REMOTE=${HPC_REMOTE}:${HPC_SCRATCH}/rl-beat-generation/outputs/
+LOCAL=$(git rev-parse --show-toplevel)/outputs/
 
 rsync -avz "$REMOTE" "$LOCAL"
 

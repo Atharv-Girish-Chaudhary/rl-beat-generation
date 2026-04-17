@@ -235,6 +235,37 @@ rl-beat-generation/
 
 ---
 
+## HPC Setup
+
+All HPC scripts (`hpc/`) read three environment variables so no credentials are hard-coded in the repo.
+
+| Variable | Default | Description |
+|---|---|---|
+| `HPC_USER` | *(required)* | Your cluster username |
+| `HPC_REMOTE` | `explorer` | SSH alias / hostname for the cluster |
+| `HPC_SCRATCH` | `/scratch/${HPC_USER}` | Path to your scratch directory on the cluster |
+
+**One-time setup:**
+
+```bash
+# 1. Copy the example and fill in your values
+cp hpc/env.sh.example hpc/env.sh
+# Edit hpc/env.sh: set HPC_USER (and optionally HPC_REMOTE / HPC_SCRATCH)
+
+# 2. Source the file before using any HPC make targets
+source hpc/env.sh
+
+# 3. Then use the Makefile as normal
+make hpc-sync       # push code to cluster
+make hpc-submit     # submit training jobs
+make hpc-status     # check job queue
+make hpc-pull       # pull outputs back
+```
+
+> `hpc/env.sh` is listed in `.gitignore` and will never be committed.
+
+---
+
 ## Setup
 
 **Requirements:** Python 3.10, CUDA GPU (recommended), Freesound API key for downloading new samples.
