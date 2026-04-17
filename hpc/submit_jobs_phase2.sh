@@ -4,10 +4,9 @@
 
 set -e
 
-: "${HPC_USER:?HPC_USER is not set. Source hpc/env.sh first.}"
-: "${HPC_SCRATCH:=/scratch/${HPC_USER}}"
+SCRATCH="${SCRATCH:-/scratch/${USER}}"
 
-cd ${HPC_SCRATCH}/rl-beat-generation
+cd ${SCRATCH}/rl-beat-generation
 
 mkdir -p logs
 
