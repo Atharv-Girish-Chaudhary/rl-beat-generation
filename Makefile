@@ -15,6 +15,14 @@ hpc-setup:
 hpc-submit:
 	ssh $(HPC_REMOTE) "cd $(HPC_PATH) && bash hpc/submit_jobs.sh"
 
+# Submit Phase 2 discriminator + PPO jobs (chained)
+hpc-submit-p2:
+	ssh $(HPC_REMOTE) "cd $(HPC_PATH) && bash hpc/submit_jobs_phase2.sh"
+
+# Cancel all jobs, then resubmit Phase 2 fresh
+hpc-restart-p2:
+	ssh $(HPC_REMOTE) "scancel -u chaudhary.at && cd $(HPC_PATH) && bash hpc/submit_jobs_phase2.sh"
+
 # Check job queue
 hpc-status:
 	ssh $(HPC_REMOTE) "squeue -u chaudhary.at"
@@ -39,4 +47,4 @@ hpc-cancel:
 hpc-restart:
 	ssh $(HPC_REMOTE) "scancel -u chaudhary.at && cd $(HPC_PATH) && bash hpc/submit_jobs.sh"
 
-.PHONY: hpc-sync hpc-setup hpc-submit hpc-status hpc-logs hpc-tail hpc-pull hpc-cancel hpc-restart
+.PHONY: hpc-sync hpc-setup hpc-submit hpc-status hpc-logs hpc-tail hpc-pull hpc-cancel hpc-restart hpc-submit-p2 hpc-restart-p2
