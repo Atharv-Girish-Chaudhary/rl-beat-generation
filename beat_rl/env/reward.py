@@ -110,42 +110,104 @@ def _evaluate_drums(grid: np.ndarray) -> float:
 
 
 def _evaluate_melodic_elements(grid: np.ndarray) -> float:
+    """
+    Evaluates the four melodic/harmonic layers in Phase 2 (8×16) grids.
+
+    Sub-scores and weights:
+      bass_lock    (0.25) — bass locks rhythmically to kick
+      melody_groove (0.25) — melody hits align to strong beats, correct density
+      pad_density  (0.15) — pad stays sparse (target 2–4 hits)
+      fx_density   (0.10) — fx stays very sparse (target 1–2 hits)
+      simul_hits   (0.25) — penalise vertical overcrowding (>4 layers active per step)
+    """
     if grid.shape[0] < 8:
-        return 0.0 # Phase 1 safety explicitly
-        
-    kick_active = grid[KICK] > 0
-    bass_active = grid[BASS] > 0
-    pad_active = grid[PAD] > 0
-    fx_active = grid[FX] > 0
-    
-    score = 0.0
-    
+        return 0.0  # Phase 1 safety guard
+
+    STRONG_BEATS = [0, 4, 8, 12]
+    T = grid.shape[1]
+
+    kick_active   = grid[KICK]   > 0
+    bass_active   = grid[BASS]   > 0
+    melody_active = grid[MELODY] > 0
+    pad_active    = grid[PAD]    > 0
+    fx_active     = grid[FX]     > 0
+
+    # ── Sub-score 1: Bass lock to kick  (weight 0.25) ─────────────────────────
+    # Rewards bass hits that coincide with kick hits.
+    # lock_ratio = (kick∩bass) / total_bass.  Full credit at ≥50% alignment.
     total_bass = np.sum(bass_active)
     if total_bass > 0:
-        simultaneous = np.sum(kick_active & bass_active)
-        lock_ratio = simultaneous / total_bass
-        if lock_ratio >= 0.5:
-            score += 0.4
-        else:
-            score += (lock_ratio * 0.4)
-            
-    pad_count = np.sum(pad_active)
-    fx_count = np.sum(fx_active)
-    
-    if pad_count <= 2: score += 0.15
-    else: score -= (pad_count - 2) * 0.1 
-    
-    if fx_count <= 1: score += 0.15
-    else: score -= (fx_count - 1) * 0.1   
-    
-    active_per_step = np.sum(grid > 0, axis=0)
-    violations = np.sum(active_per_step > 4)
-    
-    if violations == 0:
-        score += 0.3
+        simultaneous_bass = np.sum(kick_active & bass_active)
+        lock_ratio = simultaneous_bass / total_bass
+        bass_lock_score = min(lock_ratio / 0.5, 1.0)  # linear up to 50%, capped at 1
     else:
-        score -= (violations * 0.1)
-        
+        bass_lock_score = 0.0
+
+    # ── Sub-score 2: Melody groove  (weight 0.25) ─────────────────────────────
+    # Rewards melody hits on strong beats (0,4,8,12).
+    # Penalises off-beat melody hits; targets 2–6 total melody hits.
+    total_melody = np.sum(melody_active)
+    strong_melody_hits = np.sum(melody_active[STRONG_BEATS])
+    off_beat_melody_hits = total_melody - strong_melody_hits
+
+    # Density bonus: full credit for 2–6 hits, zero for 0 or >10
+    if 2 <= total_melody <= 6:
+        density_bonus = 1.0
+    elif total_melody < 2:
+        density_bonus = total_melody / 2.0          # partial if too few
+    else:
+        density_bonus = max(0.0, 1.0 - (total_melody - 6) * 0.15)  # decay above 6
+
+    # Strong-beat alignment ratio (1.0 if every melody hit is on a strong beat)
+    if total_melody > 0:
+        alignment = strong_melody_hits / total_melody
+    else:
+        alignment = 0.0
+
+    # Off-beat penalty: -0.05 per off-beat hit
+    off_beat_penalty = min(off_beat_melody_hits * 0.05, 0.5)
+
+    melody_groove_score = np.clip(
+        0.5 * density_bonus + 0.5 * alignment - off_beat_penalty,
+        0.0, 1.0
+    )
+
+    # ── Sub-score 3: Pad density  (weight 0.15) ───────────────────────────────
+    # Target: 2–4 pad hits per bar.  Exponential penalty above threshold.
+    pad_count = int(np.sum(pad_active))
+    if pad_count <= 4:
+        pad_density_score = 1.0 if pad_count >= 2 else pad_count / 2.0
+    else:
+        excess = pad_count - 4
+        pad_density_score = max(0.0, 1.0 - (1 - 0.5 ** excess))  # halves per extra hit
+
+    # ── Sub-score 4: FX density  (weight 0.10) ────────────────────────────────
+    # Target: 1–2 fx hits.  Exponential penalty above threshold.
+    fx_count = int(np.sum(fx_active))
+    if fx_count <= 2:
+        fx_density_score = 1.0 if fx_count >= 1 else 0.0
+    else:
+        excess = fx_count - 2
+        fx_density_score = max(0.0, 1.0 - (1 - 0.5 ** excess))  # halves per extra hit
+
+    # ── Sub-score 5: Simultaneous-hit penalty  (weight 0.25) ──────────────────
+    # Penalise steps where >4 of the 8 layers are active at once (mud).
+    active_per_step = np.sum(grid > 0, axis=0)
+    violations = int(np.sum(active_per_step > 4))
+    if violations == 0:
+        simul_score = 1.0
+    else:
+        simul_score = max(0.0, 1.0 - violations * 0.1)
+
+    # ── Weighted total ─────────────────────────────────────────────────────────
+    score = (
+        0.25 * bass_lock_score
+        + 0.25 * melody_groove_score
+        + 0.15 * pad_density_score
+        + 0.10 * fx_density_score
+        + 0.25 * simul_score
+    )
+
     return float(np.clip(score, 0.0, 1.0))
 
 

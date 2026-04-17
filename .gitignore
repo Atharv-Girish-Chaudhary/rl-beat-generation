@@ -31,12 +31,10 @@ htmlcov/
 .idea/
 *.swp
 *.swo
-*.DS_Store
 Thumbs.db
 
 # ===== OS =====
 .DS_Store
-Thumbs.db
 
 # ===== Tools =====
 .claude/

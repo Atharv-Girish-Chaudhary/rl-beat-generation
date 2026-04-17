@@ -1,7 +1,8 @@
 # RL Beat Generation
 
-> A PPO agent that composes drum beats by filling a 4×16 grid cell-by-cell, guided by a hybrid
-> reward of hand-crafted musical rules and a transformer discriminator trained on real performances.
+> A PPO agent that composes drum beats by filling an instrument × time grid cell-by-cell, guided by
+> a hybrid reward of hand-crafted musical rules and a transformer discriminator trained on real
+> performances.
 
 **CS 5180 Reinforcement Learning · Northeastern University · Spring 2026**  
 Atharv Chaudhary · Taha Ucar · Yixun Li
@@ -17,11 +18,8 @@ Atharv Chaudhary · Taha Ucar · Yixun Li
 
 ![First vs Best epoch comparison](outputs/plots/first_vs_best_comparison.png)
 
-*Left: agent at epoch 0. Right: best checkpoint (epoch 209, reward 0.779). Blue = active cell, number = sample ID chosen.*
-
-The agent also renders beats to audio. Running `scripts/generate_audio.py` produces a WAV file by
-loading the trained actor, running one inference episode, and mixing the instrument samples from
-`data/samples/` at 16th-note intervals. A 4-bar loop at 120 BPM is saved to `outputs/beat_sample.wav`.
+*Left: agent at epoch 0. Right: best Phase 1 checkpoint (epoch 486, reward 0.942). Blue = active
+cell, number = sample ID chosen.*
 
 ### Streamlit App
 
@@ -37,6 +35,7 @@ Opens at `localhost:8501`. Controls:
 
 | Control | Description |
 |---------|-------------|
+| **Phase** | Switch between Phase 1 (4×16) and Phase 2 (8×16) |
 | **BPM** | Tempo (60–180) |
 | **Seed** | Reproducible beat generation |
 | **N Bars** | Loop length (1–8) |
@@ -47,20 +46,22 @@ Click **Generate Beat** to produce a grid, hear the audio, and view evaluation m
 
 ## Architecture
 
-The system frames beat composition as a sequential MDP over a 4×16 grid (4 instrument layers × 16
-16th-note time steps). The agent fills one cell per step until all 64 cells are assigned.
+### Agent & Environment
+
+The system frames beat composition as a sequential MDP over an L×16 grid (L instrument layers × 16
+16th-note time steps). The agent fills one cell per step until all L×16 cells are assigned.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          PPO Agent                                   │
 │                                                                       │
-│   Observation: (L×T×(S+2),) = (1088,) float32                       │
+│   Observation: (L×T×(S+2),) float32                                  │
 │     • Channels 0–14: one-hot sample index per cell                   │
 │     • Channel 15:    silence flag                                     │
 │     • Channel 16:    step_count / max_steps  (temporal progress)     │
 │                                                                       │
 │   ┌──────────────────────────────┐   ┌───────────────────────────┐   │
-│   │       CNNLayerStepSampleActor│   │       CNNBeatCritic        │   │
+│   │   CNNLayerStepSampleActor    │   │       CNNBeatCritic        │   │
 │   │                              │   │                             │   │
 │   │  Conv2d(17,32) → ReLU        │   │  Conv2d(17,32) → ReLU      │   │
 │   │  Conv2d(32,64) → ReLU        │   │  Conv2d(32,64) → ReLU      │   │
@@ -81,9 +82,9 @@ The system frames beat composition as a sequential MDP over a 4×16 grid (4 inst
                               │ action: flat int → (layer, step, sample)
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       BeatGridEnv (Phase 1)                          │
-│  Grid: (4, 16) int64   −1=empty, 0=silence, 1–15=sample index       │
-│  Episode: fill all 64 cells, then terminate                          │
+│               BeatGridEnv (Phase 1: 4×16 / Phase 2: 8×16)           │
+│  Grid: (L, 16) int64   −1=empty, 0=silence, 1–15=sample index       │
+│  Episode: fill all L×16 cells, then terminate                        │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -91,13 +92,13 @@ The system frames beat composition as a sequential MDP over a 4×16 grid (4 inst
 │                         Hybrid Reward                                 │
 │                                                                       │
 │   R = α · R_rules  +  β · R_disc                                     │
-│       (0.9)              (0.1)    ← Phase 1 weights                  │
+│       (0.7)              (0.3)    ← Phase 1 weights (v3)             │
 │                                                                       │
 │   R_rules  (terminal, [0,1]):                                        │
 │     +0.1  kick on step 0                                             │
 │     +0.1  kick on step 8                                             │
 │     +0.1  snare/clap on step 4                                       │
-│     +0.1  snare/clap on step 12                                       │
+│     +0.1  snare/clap on step 12                                      │
 │     +0.2  hi-hat count in [4, 12]                                    │
 │     +0.4  Jaccard similarity (first vs second half) in [0.6, 0.95)  │
 │     −0.01 per off-beat snare/clap hit                                │
@@ -119,15 +120,26 @@ The system frames beat composition as a sequential MDP over a 4×16 grid (4 inst
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Action space factoring.** Instead of sampling from L·T·(S+1) = 1,024 actions flat, the actor
-decomposes each decision into three sequential steps — layer → step → sample — reducing effective
-branching and letting the architecture encode instrument hierarchy explicitly.
+**Action space factoring.** Instead of sampling from L·T·(S+1) actions flat, the actor decomposes
+each decision into three sequential steps — layer → step → sample — reducing effective branching
+and letting the architecture encode instrument hierarchy explicitly.
 
 ---
 
-## Results (Phase 1 — v3 checkpoint)
+## Current Status
 
-Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` (v3) and
+| Phase | Status | Description |
+|-------|--------|-------------|
+| **Phase 1** | ✅ Complete | PPO agent on 4×16 grid, audio generation, Streamlit demo |
+| **Phase 2** | ✅ Complete | 8×16 grid expansion (Bass, Melody, Pad, FX layers added) |
+
+---
+
+## Results
+
+### Phase 1 — v3 checkpoint
+
+Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_phase1_best.pth` (v3) and
 `discriminator_phase1_v2`.
 
 | Metric | Value | Notes |
@@ -138,7 +150,7 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` 
 | Groove consistency | **0.3971 ± 0.0332** | Hits on strong beats (steps 0,4,8,12) / total hits |
 | Discriminator score | **0.0005 ± 0.0003** | sigmoid(discriminator logit) |
 
-**Per-layer density:**
+**Per-layer density (Phase 1):**
 
 | Instrument | Density | Interpretation |
 |------------|---------|----------------|
@@ -164,14 +176,16 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` 
 | v2 | α=0.6, β=0.4, 250 ep, weak disc | 0.779 |
 | **v3 (final)** | **α=0.7, β=0.3, 500 ep, disc v2** | **0.942** |
 
----
+### Phase 2 — 8×16 checkpoint
 
-## Current Status
+Evaluated over 20 episodes using `evaluation/evaluate.py --phase 2` with `actor_phase2_best.pth`
+and `discriminator_phase2`.
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| **Phase 1** | ✅ Complete | PPO agent trained on 4×16 grid, audio generation, Streamlit demo |
-| **Phase 2** | 🚧 In Progress | 8×16 grid expansion, SAC agent for continuous audio FX modulation |
+| Metric | Phase 1 (v3) | Phase 2 |
+|--------|-------------|---------|
+| Rule reward | 0.9585 | see `outputs/evaluation_report_phase2.json` |
+| Beat density | 0.4508 | see `outputs/evaluation_report_phase2.json` |
+| Groove consistency | 0.3971 | see `outputs/evaluation_report_phase2.json` |
 
 ---
 
@@ -179,11 +193,11 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_best.pth` 
 
 ```
 rl-beat-generation/
-├── app.py                                # Streamlit interactive demo
+├── app.py                                # Streamlit interactive demo (Phase 1 + 2)
 │
 ├── beat_rl/                              # Installable package
 │   ├── env/
-│   │   ├── beat_env.py                   # BeatGridEnv (Gymnasium, Phase 1)
+│   │   ├── beat_env.py                   # BeatGridEnv (Gymnasium, Phase 1 & 2)
 │   │   ├── reward.py                     # compute_reward() — rules + discriminator
 │   │   └── visualize_env.py              # Matplotlib grid heatmap
 │   └── models/
@@ -202,8 +216,8 @@ rl-beat-generation/
 │   └── generate_audio.py                 # Actor inference → WAV rendering
 │
 ├── evaluation/
-│   ├── evaluate.py                       # N-episode eval: rule reward, density, groove
-│   └── evaluate_baseline.py              # Random agent baseline evaluation
+│   ├── evaluate.py                       # N-episode eval: rule reward, density, groove (--phase 1|2)
+│   └── evaluate_baseline.py              # Random agent baseline (--phase 1|2)
 │
 ├── configs/
 │   ├── ppo_phase1.yaml                   # Phase 1 PPO hyperparameters (4×16)
@@ -232,7 +246,7 @@ rl-beat-generation/
 │   └── discriminator_notes.ipynb         # Discriminator research notes
 │
 ├── data/
-│   ├── processed/groove_grids.npy        # Pre-processed Groove MIDI grids
+│   ├── processed/groove_grids.npy        # Pre-processed Groove MIDI grids (gitignored)
 │   ├── raw/groove/                       # Groove MIDI dataset (gitignored)
 │   └── samples/                          # Freesound WAV samples (gitignored)
 │       ├── kick/   (30 samples)
@@ -244,14 +258,19 @@ rl-beat-generation/
 │
 ├── outputs/
 │   ├── checkpoints/                      # Model weights (gitignored)
-│   │   ├── actor_best.pth                # Best Phase 1 actor (v3, epoch 486)
-│   │   ├── critic_best.pth               # Best Phase 1 critic
-│   │   └── discriminator_phase1_v2.pt    # Discriminator v2 (95.12% val acc)
+│   │   ├── actor_phase1_best.pth         # Best Phase 1 actor (v3, epoch 486)
+│   │   ├── critic_phase1_best.pth        # Best Phase 1 critic
+│   │   ├── discriminator_phase1_v2.pt    # Phase 1 discriminator (95.12% val acc)
+│   │   ├── actor_phase2_best.pth         # Best Phase 2 actor (8×16)
+│   │   ├── critic_phase2_best.pth        # Best Phase 2 critic
+│   │   └── discriminator_phase2.pt       # Phase 2 discriminator
 │   ├── plots/
 │   │   ├── first_vs_best_comparison.png  # Epoch 0 vs best checkpoint
 │   │   └── ppo_training_plot.png         # Training reward curve
-│   ├── beat_sample.wav                   # Most recent generated beat (gitignored)
-│   └── evaluation_report.json           # Latest eval results (20 episodes)
+│   ├── evaluation_report.json            # Phase 1 eval results (20 episodes)
+│   ├── evaluation_report_phase2.json     # Phase 2 eval results (20 episodes)
+│   ├── random_baseline_report.json       # Phase 1 random baseline
+│   └── random_baseline_report_phase2.json # Phase 2 random baseline
 │
 ├── tests/                                # 17 unit + integration tests (all pass)
 │   ├── test_actor.py
@@ -321,20 +340,34 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 pip install -e .
 ```
 
-Checkpoints and processed data are committed to the repo — no data pipeline step is required to
-run inference or evaluation.
+Checkpoints and processed data are gitignored — run training scripts or pull from HPC to populate
+`outputs/checkpoints/`.
 
 ---
 
 ## Usage
 
-**Retrain from scratch** (pre-trained discriminator already included):
+**Run the Streamlit app:**
+
+```bash
+conda activate rl-beats
+streamlit run app.py
+# Opens at localhost:8501 — use the Phase selector to switch between 4×16 and 8×16
+```
+
+**Retrain from scratch (Phase 1):**
 
 ```bash
 conda activate rl-beats
 python scripts/train_ppo.py
-# Saves actor_best.pth, critic_best.pth to outputs/checkpoints/
-# Saves training curves and grid PNGs to outputs/plots/
+# Saves actor_phase1_best.pth, critic_phase1_best.pth to outputs/checkpoints/
+```
+
+**Retrain from scratch (Phase 2):**
+
+```bash
+python scripts/train_ppo_phase2.py
+# Saves actor_phase2_best.pth, critic_phase2_best.pth to outputs/checkpoints/
 ```
 
 **Generate a beat:**
@@ -344,14 +377,16 @@ python scripts/generate_audio.py --seed 42 --bpm 120 --n_beats 4
 # Writes outputs/beat_sample.wav
 ```
 
-**Evaluate the checkpoint:**
+**Evaluate checkpoints:**
 
 ```bash
-python evaluation/evaluate.py --n_episodes 20
-# Prints summary table, writes outputs/evaluation_report.json
+# Phase 1
+python evaluation/evaluate.py --n_episodes 20 --phase 1
+python evaluation/evaluate_baseline.py --n_episodes 20 --phase 1
 
-python evaluation/evaluate_baseline.py --n_episodes 20
-# Random agent baseline for comparison
+# Phase 2
+python evaluation/evaluate.py --n_episodes 20 --phase 2
+python evaluation/evaluate_baseline.py --n_episodes 20 --phase 2
 ```
 
 **Retrain the discriminator** (requires Groove MIDI dataset):
@@ -360,7 +395,8 @@ python evaluation/evaluate_baseline.py --n_episodes 20
 wget https://storage.googleapis.com/magentadata/datasets/groove/groove-v1.0.0-midionly.zip
 unzip groove-v1.0.0-midionly.zip -d data/raw/groove
 python scripts/process_groove.py          # → data/processed/groove_grids.npy
-python scripts/train_discriminator.py     # → outputs/checkpoints/discriminator_best.pth
+python scripts/train_discriminator.py     # Phase 1 → outputs/checkpoints/discriminator_phase1_v2.pt
+python scripts/train_discriminator_phase2.py  # Phase 2 → outputs/checkpoints/discriminator_phase2.pt
 ```
 
 **Run tests:**
@@ -380,7 +416,7 @@ Open `notebooks/train_ppo_colab.ipynb`. Set runtime to T4 GPU. All config is in 
 
 | Member | Contribution |
 |--------|-------------|
-| **Atharv Chaudhary** | PPO training loop, discriminator architecture and pre-training |
+| **Atharv Chaudhary** | PPO training loop, discriminator architecture and pre-training, Phase 2 expansion |
 | **Taha Ucar** | Gymnasium environment, reward function, action masking |
 | **Yixun Li** | Data pipeline (Groove MIDI, Freesound), audio rendering |
 
