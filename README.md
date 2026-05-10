@@ -294,7 +294,6 @@ rl-beat-generation/
 │   ├── phase2_diagnostic.md              # Root-cause analysis of Phase 2 density issue
 │   └── PROGRESS.md                       # Development status tracker
 │
-├── configs/
 ├── environment.yml
 ├── requirements.txt
 ├── Makefile
@@ -346,9 +345,16 @@ cd rl-beat-generation
 conda create -n rl-beats python=3.10
 conda activate rl-beats
 
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# macOS (CPU / MPS) or any non-CUDA system — for development and inference:
+pip install torch torchvision torchaudio
+
+# Linux with CUDA (HPC, Colab) — for training:
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
 pip install -e .
 ```
+
+*Note: `requirements.txt` is the locked Linux/CUDA reproducibility manifest. On macOS, the platform-specific torch install above plus `pip install -e .` is sufficient for development and inference.*
 
 Checkpoints and processed data are gitignored — run training scripts or pull from HPC to populate
 `outputs/checkpoints/`.
@@ -448,6 +454,21 @@ Open `notebooks/train_ppo_colab.ipynb`. Set runtime to T4 GPU. All config is in 
 - Vaswani et al., [Attention Is All You Need](https://arxiv.org/abs/1706.03762) (2017)
 
 ---
+
+## Citation
+
+If you reference this work:
+
+
+```bibtex
+@misc{chaudhary2026beatrl,
+  author = {Chaudhary, Atharv and Ucar, Taha and Li, Yixun},
+  title  = {RL Beat Generation: PPO with Hybrid Rule-Discriminator Reward},
+  year   = {2026},
+  note   = {CS 5180 Reinforcement Learning, Northeastern University},
+  url    = {https://github.com/Atharv-Girish-Chaudhary/rl-beat-generation}
+}
+```
 
 ## License
 
