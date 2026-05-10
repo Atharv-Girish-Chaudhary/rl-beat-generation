@@ -455,6 +455,12 @@ Open `notebooks/train_ppo_colab.ipynb`. Set runtime to T4 GPU. All config is in 
 
 ---
 
+## Future Work
+
+Planned improvements and research extensions are tracked in [`docs/FUTURE_WORK.md`](docs/FUTURE_WORK.md).
+
+---
+
 ## Citation
 
 If you reference this work:
