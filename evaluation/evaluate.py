@@ -62,6 +62,7 @@ LAYER_NAMES: list = _PHASE1_LAYER_NAMES
 L: int = _PHASE1_L
 T: int = _PHASE1_T
 S: int = _PHASE1_S
+PHASE: int = 1
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -89,15 +90,16 @@ def metric_disc_score(grid: np.ndarray, disc: BeatDiscriminator) -> float:
     """Discriminator P(real): reuse reward.py's existing _get_discriminator_score path."""
     return compute_reward(
         grid, final=True, action_coord=None,
-        phase=1, discriminator=disc, alpha=0.0, beta=1.0
+        phase=PHASE, discriminator=disc, alpha=0.0, beta=1.0
     )
 
 
 def metric_rule_reward(grid: np.ndarray) -> float:
-    """Rule-based score only (discriminator excluded)."""
+    """Rule-based score only (discriminator excluded), against the phase's own objective:
+    Phase 1 = drum rules; Phase 2 = (drum rules + melodic rules) / 2."""
     return compute_reward(
         grid, final=True, action_coord=None,
-        phase=1, discriminator=None, alpha=1.0, beta=0.0
+        phase=PHASE, discriminator=None, alpha=1.0, beta=0.0
     )
 
 
@@ -205,7 +207,7 @@ def print_summary(summary: dict, n_episodes: int, phase: int) -> None:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    global LAYER_NAMES, L, T, S  # allow metric helpers to see phase-specific values
+    global LAYER_NAMES, L, T, S, PHASE  # allow metric helpers to see phase-specific values
 
     parser = argparse.ArgumentParser(
         description="Evaluate the trained beat agent across N episodes (Phase 1 or 2)."
@@ -256,6 +258,7 @@ def main():
         default_report_path = _DEFAULT_REPORT_P1
         print("Phase 1 evaluation (4-layer, 4×16 grid)")
 
+    PHASE = args.phase
     LAYER_TO_SAMPLES = {i: list(range(1, S + 1)) for i in range(L)}
     out_path = Path(args.output) if args.output else default_report_path
 

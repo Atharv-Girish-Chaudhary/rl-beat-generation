@@ -79,15 +79,20 @@ def train_ppo(
     T, S = 16, 15
     layer_to_samples = {i: list(range(1, 16)) for i in range(L)}
 
-    # Optionally load discriminator
-    disc = None
+    # Load discriminator — required. A missing checkpoint must fail loudly rather than
+    # silently training rules-only with the learned reward (beta term) dropped.
     ckpt_name = "discriminator_phase1_v2.pt" if phase == 1 else "discriminator_phase2.pt"
     disc_path = _REPO_ROOT / "outputs" / "checkpoints" / ckpt_name
-    if disc_path.exists():
-        print(f"Loading Pre-trained Discriminator: {ckpt_name}...")
-        disc = BeatDiscriminator(num_instruments=L, num_steps=T, d_model=64, num_heads=4, num_blocks=2, d_ff=128).to(device)
-        disc.load_state_dict(torch.load(str(disc_path), map_location=device))
-        disc.eval()
+    if not disc_path.exists():
+        raise FileNotFoundError(
+            f"Discriminator checkpoint not found: {disc_path}\n"
+            f"Without it, training would silently use rules-only reward (beta*R_disc = 0).\n"
+            f"Train it first:  python scripts/train_discriminator.py --phase {phase}"
+        )
+    print(f"Loading Pre-trained Discriminator: {ckpt_name}...")
+    disc = BeatDiscriminator(num_instruments=L, num_steps=T, d_model=64, num_heads=4, num_blocks=2, d_ff=128).to(device)
+    disc.load_state_dict(torch.load(str(disc_path), map_location=device))
+    disc.eval()
 
     # Create Environment
     def r_fn(grid, final, action_coord):

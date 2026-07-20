@@ -178,21 +178,30 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_phase1_bes
 
 ### Phase 2 — 8×16 checkpoint
 
-Evaluated over 20 episodes using `evaluation/evaluate.py --phase 2` with `actor_phase2_best.pth`
-and `discriminator_phase2`.
+Evaluated over 20 episodes using `evaluation/evaluate.py --phase 2 --seed 7` with
+`actor_phase2_best.pth` and `discriminator_phase2`. Rule reward is scored against the
+**full Phase 2 objective** — the average of the drum and melodic rule sets that Phase 2
+training actually optimized. (Earlier revisions of this README reported **0.72**, but that
+was a drums-only subscore: a metric bug scored Phase 2 grids against the Phase 1 rule set.)
 
-| Metric | Phase 1 (v3) | Phase 2 | Notes |
-|--------|-------------|---------|-------|
-| Rule reward (mean ± std) | 0.9585 ± 0.1330 | **0.7215 ± 0.0781** | Phase 2 lower due to density spam |
-| Beat density | 0.4508 ± 0.0173 | **0.8871 ± 0.0275** | Agent exploits density for reward |
-| Groove consistency | 0.3971 ± 0.0332 | **0.2660 ± 0.0112** | Near random-noise floor (0.25) |
-| Discriminator score | 0.0005 ± 0.0003 | **0.0008 ± 0.0002** | Effectively zero — disc not influencing agent |
+| Metric | Phase 2 PPO | Random baseline | Notes |
+|--------|-------------|-----------------|-------|
+| Rule reward (Phase 2 objective) | **0.5086 ± 0.0212** | 0.3615 ± 0.0802 | +41% over random (Phase 1 was +130%) |
+| Beat density | **0.8629 ± 0.0181** | 0.9379 ± 0.0163 | Density-spam local optimum |
+| Groove consistency | **0.2694 ± 0.0104** | — | Near the random-noise floor (0.25)* |
+| Discriminator score | **0.0008 ± 0.0003** | 0.0009 ± 0.0002 | Saturated at ~0 — no learned-reward signal |
 
-**Phase 2 per-layer density:** Kick 0.978, Snare 0.903, HiHat **0.628** (learned throttle for hat
-rule), Clap 0.834, Bass 0.922, Melody 0.944, Pad 0.972, FX 0.916.
+*\* Baseline groove consistency is omitted: `evaluate_baseline.py` computes this metric with a
+different formula (half-bar Jaccard), so the two columns are not comparable.*
 
-> ⚠️ **Known issue:** The Phase 2 agent is stuck in a density-spam local optimum.
-> See `docs/phase2_diagnostic.md` for root-cause analysis and proposed fixes.
+**Phase 2 per-layer density:** Kick 0.991, Snare 0.847, HiHat **0.584** (learned throttle for the
+hat-count rule), Clap 0.797, Bass 0.919, Melody 0.928, Pad 0.938, FX 0.900.
+
+> ⚠️ **Known limitation:** the Phase 2 agent converged to a density-spam local optimum. The
+> melodic half of its objective sits on a zero-variance plateau (0.2501 for both the agent and
+> the random baseline — i.e. no learning signal), so training flatlined at the equilibrium
+> predicted in [`docs/phase2_diagnostic.md`](docs/phase2_diagnostic.md), which contains the full
+> root-cause analysis and proposed fixes.
 
 ---
 
