@@ -280,7 +280,7 @@ rl-beat-generation/
 │   ├── checkpoints/                      # Model weights (gitignored — download from the v1.0-checkpoints Release)
 │   │   ├── actor_phase1_best.pth         # Best Phase 1 actor (v3, epoch 486)
 │   │   ├── critic_phase1_best.pth
-│   │   ├── discriminator_phase1_v2.pt    # Phase 1 discriminator (95.12% val acc)
+│   │   ├── discriminator_phase1_v2.pt    # Phase 1 discriminator (94.75% val acc — see outputs/discriminator_phase1_eval.json)
 │   │   ├── actor_phase2_best.pth
 │   │   ├── critic_phase2_best.pth
 │   │   └── discriminator_phase2.pt
@@ -439,6 +439,10 @@ python evaluation/evaluate_baseline.py --n_episodes 20 --phase 1
 # Phase 2
 python evaluation/evaluate.py --n_episodes 20 --phase 2
 python evaluation/evaluate_baseline.py --n_episodes 20 --phase 2
+
+# Discriminator validation accuracy (evaluation-only, seeded — writes
+# outputs/discriminator_phase1_eval.json)
+python evaluation/evaluate_discriminator.py --seed 7
 ```
 
 **Retrain the discriminator** (requires Groove MIDI dataset):

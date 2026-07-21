@@ -1,0 +1,24 @@
+{
+  "config": {
+    "checkpoint": "outputs/checkpoints/discriminator_phase1_v2.pt",
+    "data": "data/processed/groove_grids.npy",
+    "phase": 1,
+    "seed": 7,
+    "batch_size": 128,
+    "split": "80/20 train/val (val only), torch.random_split seeded",
+    "n_raw_grids": 22965,
+    "n_silent_removed": 1345,
+    "n_real_grids": 21620,
+    "dataset_size": 43240,
+    "val_size": 8648,
+    "negative_mix": "random/shuffled/density/silent/agent-fallback (same as training)"
+  },
+  "results": {
+    "val_accuracy": 0.9475,
+    "val_bce_loss": 0.1483,
+    "real_accuracy": 0.964,
+    "fake_accuracy": 0.931,
+    "n_correct": 8194,
+    "n_total": 8648
+  }
+}

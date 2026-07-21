@@ -22,7 +22,7 @@ This project trains a reinforcement learning agent to compose drum beat grids us
 
 | Metric | Value |
 |---|---|
-| Discriminator Val Accuracy | 95.12% |
+| Discriminator Val Accuracy | 94.75% (pinned: [`outputs/discriminator_phase1_eval.json`](../outputs/discriminator_phase1_eval.json), seed 7; training-run log printed 95.12%) |
 | Best PPO Reward | 0.942 |
 | EER-equivalent Discriminator Score | ~0.94 (near-perfect separation) |
 
@@ -83,8 +83,11 @@ scaffolding only) — are tracked in [`FUTURE_WORK.md`](FUTURE_WORK.md).
 | Metric | Phase 1 (v3) | Phase 2 — Run 1 | Phase 2 — Final |
 |---|---|---|---|
 | Best Training Reward | 0.942 | 0.520 | 0.608 (plateau ~0.595) |
-| Discriminator Val Accuracy | 95.12% | 97.41% | 97.41% |
+| Discriminator Val Accuracy | 94.75%¹ | 97.41% | 97.41% |
 | Rule Reward (eval, own objective) | 0.9585 | — | 0.5086 (random: 0.3615) |
 | Discriminator Score (eval) | 0.0005 | ~0.00 | 0.0008 |
 | Beat Density | 0.4508 | 0.87 | 0.8629 |
 | Groove Consistency | 0.3971 | 0.267 | 0.2694 |
+
+¹ Pinned by the committed, seeded eval artifact [`outputs/discriminator_phase1_eval.json`](../outputs/discriminator_phase1_eval.json)
+(`python evaluation/evaluate_discriminator.py --seed 7`). The original training-run log printed 95.12%.
