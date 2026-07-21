@@ -1,3 +1,5 @@
+# NOTE: Reference only — scripts/train_ppo.py is CLI-driven (argparse defaults)
+# and does NOT read this file. Values below mirror the v3 training run.
 env:
   L: 4
   T: 16
@@ -5,7 +7,7 @@ env:
   phase: 1
 
 training:
-  epochs: 250
+  epochs: 500
   episodes_per_epoch: 32
   gamma: 0.99
   lam: 0.95
@@ -14,11 +16,15 @@ training:
   v_lr: 1.0e-3
   train_pi_iters: 4
   train_v_iters: 4
-  entropy_coef: 0.05
+  entropy_coef: 0.10
   grad_clip_norm: 0.5
 
+reward:
+  alpha: 0.7            # rule-reward weight
+  beta: 0.3             # discriminator-reward weight
+
 discriminator:
-  path: outputs/checkpoints/discriminator_best.pth
+  path: outputs/checkpoints/discriminator_phase1_v2.pt
 
 outputs:
   checkpoint_dir: outputs/checkpoints

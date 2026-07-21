@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 
-This project trains a reinforcement learning agent to compose drum beat grids using Proximal Policy Optimization (PPO) and, in Phase 2, a Soft Actor-Critic (SAC) agent for continuous audio effects modulation. A CNN-based discriminator provides learned reward signal by distinguishing agent-generated patterns from real drum data. The system produces playable audio output via a browser-based Streamlit interface, where users can inspect the generated beat grid, listen to rendered audio, and review per-step evaluation metrics.
+This project trains a reinforcement learning agent to compose drum beat grids using Proximal Policy Optimization (PPO) across two phases: a 4-instrument 4×16 grid (Phase 1) and an 8-instrument 8×16 grid (Phase 2). A transformer-based discriminator (2 encoder blocks, 4 attention heads) provides a learned reward signal by distinguishing agent-generated patterns from real drum data, blended with hand-crafted musical rules (α·rules + β·discriminator). The system produces playable audio output via a browser-based Streamlit interface, where users can inspect the generated beat grid, listen to rendered audio, and review per-step evaluation metrics.
 
 ---
 
@@ -14,7 +14,7 @@ This project trains a reinforcement learning agent to compose drum beat grids us
 |---|---|
 | `BeatGridEnv` | 4×16 beat grid environment with rule-based and discriminator rewards |
 | PPO Agent | `CNNLayerStepSampleActor` trained with `train_ppo.py` |
-| Discriminator | CNN binary classifier trained with `train_discriminator.py` |
+| Discriminator | Transformer-encoder binary classifier (2 blocks, 4 heads) trained with `train_discriminator.py` |
 | Audio Generation | `generate_audio.py` rendering 4 instruments via `pretty_midi` + `pedalboard` |
 | Streamlit App | `app.py` — interactive beat grid viewer with audio playback |
 
@@ -28,7 +28,7 @@ This project trains a reinforcement learning agent to compose drum beat grids us
 
 ---
 
-## 3. Phase 2 Status — In Progress 🚧
+## 3. Phase 2 Status — Complete ✅ (converged to a documented density-trap optimum)
 
 ### What's Done
 
@@ -40,29 +40,31 @@ This project trains a reinforcement learning agent to compose drum beat grids us
 - `evaluate.py` and `evaluate_baseline.py` updated with `--phase` argument
 - Streamlit `app.py` updated with Phase 1 / Phase 2 sidebar toggle
 
-### What's In Progress
+### Final Outcome
 
-- PPO retraining with improved reward weights — **job currently running on HPC**
+The retrained Phase 2 run converged: mean episode reward plateaued at ~0.595 (best 0.608)
+within ~100 epochs and held flat for the remaining 400 — a stable density-spam local optimum,
+not an under-trained run. Scored against the full Phase 2 objective (drums + melodic averaged,
+seed 7), the agent reaches **0.5086 rule reward vs 0.3615 for a random baseline**. Root-cause
+analysis (action-space density prior, clipped melodic penalties, Jaccard exploit) is in
+[`phase2_diagnostic.md`](phase2_diagnostic.md).
 
-### Known Issues
+### Known Issues (documented, analyzed)
 
 | Issue | Detail |
 |---|---|
-| Groove consistency critically low | Agent: 0.267 vs random baseline: 0.881 |
-| Discriminator score near zero | Agent patterns not fooling the discriminator |
-| Beat density too high | 87% — agent is over-filling the grid |
+| Groove consistency critically low | Agent: 0.269 — near the random-noise floor (0.25) |
+| Discriminator score near zero | ~0.0008 — saturated; no learned-reward signal in the dense regime |
+| Beat density too high | ~86% — agent over-fills the grid (density-trap equilibrium) |
 
 ---
 
-## 4. Phase 2 Remaining Work
+## 4. Remaining Work
 
-- [ ] **Evaluate retrained PPO** — compare groove consistency, discriminator score, and beat density against run 1 results; target reward > 0.80
-- [ ] **Tune reward weights further** if retrained run does not meet targets
-- [ ] **Build `sac.py`** — SAC actor and critic network definitions for continuous FX modulation (`reverb_mix`, `delay_feedback`, `lpf_cutoff`)
-- [ ] **Build `train_sac.py`** — SAC training script with environment integration and checkpoint saving
-- [ ] **Update `generate_audio.py`** — add 4 new instruments (Phase 2 expansion) and integrate `pedalboard` DSP effects driven by SAC outputs
-- [ ] **Update `evaluate.py` and `evaluate_baseline.py`** — add SAC-specific metrics (FX parameter distributions, audio feature changes)
-- [ ] **Update `app.py`** — add SAC FX readout panel showing live parameter values alongside the beat grid
+Phase 2 training, evaluation, and analysis are complete for the project's scope. Research
+extensions beyond it — the Phase 2 reward redesign (density-trap fixes) and a possible
+Soft Actor-Critic comparison study (no SAC code exists in this repo; `configs/sac.yaml` is
+scaffolding only) — are tracked in [`FUTURE_WORK.md`](FUTURE_WORK.md).
 
 ---
 
@@ -70,19 +72,19 @@ This project trains a reinforcement learning agent to compose drum beat grids us
 
 | ID | File | Issue | Status |
 |---|---|---|---|
-| BUG-01 | `train_ppo.py` | Was saving checkpoints with generic names (e.g. `actor_checkpoint.pth`) instead of phase-tagged names | Fixed in code; current HPC run still uses old naming — **manual rename required after job completes** |
-| BUG-02 | `evaluate.py` / `evaluate_baseline.py` | Groove consistency metric is computed differently between the two scripts — results are not directly comparable | Open — needs reconciliation |
-| BUG-03 | `configs/ppo_phase2.yaml` | References `discriminator_phase2_best.pth` but actual saved file is `discriminator_phase2.pt` | Open — path must be corrected before next training run |
+| BUG-01 | `train_ppo.py` | Was saving checkpoints with generic names (e.g. `actor_best.pth`) instead of phase-tagged names | **Fixed** — training saves phase-tagged names; `evaluate.py` and `generate_audio.py` defaults updated to `actor_phase1_best.pth` |
+| BUG-02 | `evaluate.py` / `evaluate_baseline.py` | Groove consistency metric is computed differently between the two scripts — results are not directly comparable | Open (documented) — footnoted in the README results tables |
+| BUG-03 | `configs/ppo_phase2.yaml` | References `discriminator_phase2_best.pth` but actual saved file is `discriminator_phase2.pt` | **Fixed** — config paths corrected; configs now note that training is CLI-driven and does not read these YAMLs |
 
 ---
 
 ## 6. Metrics Tracking
 
-| Metric | Phase 1 | Phase 2 — Run 1 |
-|---|---|---|
-| Best Reward | 0.942 | 0.520 |
-| Discriminator Val Accuracy | 95.12% | 97.41% |
-| Rule Reward | — | — |
-| Discriminator Score | ~0.94 | ~0.00 |
-| Beat Density | — | 87% |
-| Groove Consistency | — | 0.267 (random baseline: 0.881) |
+| Metric | Phase 1 (v3) | Phase 2 — Run 1 | Phase 2 — Final |
+|---|---|---|---|
+| Best Training Reward | 0.942 | 0.520 | 0.608 (plateau ~0.595) |
+| Discriminator Val Accuracy | 95.12% | 97.41% | 97.41% |
+| Rule Reward (eval, own objective) | 0.9585 | — | 0.5086 (random: 0.3615) |
+| Discriminator Score (eval) | 0.0005 | ~0.00 | 0.0008 |
+| Beat Density | 0.4508 | 0.87 | 0.8629 |
+| Groove Consistency | 0.3971 | 0.267 | 0.2694 |

@@ -252,7 +252,7 @@ def main():
         L = _PHASE1_L
         T = _PHASE1_T
         S = _PHASE1_S
-        actor_filename      = "actor_best.pth"
+        actor_filename      = "actor_phase1_best.pth"
         disc_filename       = "discriminator_phase1_v2.pt"
         disc_d_ff           = 128
         default_report_path = _DEFAULT_REPORT_P1

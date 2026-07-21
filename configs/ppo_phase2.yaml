@@ -1,3 +1,5 @@
+# NOTE: Reference only — scripts/train_ppo.py is CLI-driven (argparse defaults)
+# and does NOT read this file. Values below mirror the final Phase 2 run.
 env:
   L: 8                  # num_instruments (was 4 in phase 1)
   T: 16
@@ -15,13 +17,17 @@ training:
   v_lr: 1.0e-3
   train_pi_iters: 4
   train_v_iters: 4
-  entropy_coef: 0.05
+  entropy_coef: 0.10
   grad_clip_norm: 0.5
 
+reward:
+  alpha: 0.7            # rule-reward weight
+  beta: 0.3             # discriminator-reward weight
+
 discriminator:
-  path: outputs/checkpoints/discriminator_phase2_best.pth
+  path: outputs/checkpoints/discriminator_phase2.pt
 
 outputs:
   checkpoint_dir: outputs/checkpoints
   best_actor_path: outputs/checkpoints/actor_phase2_best.pth
-  plot_dir: outputs/plots/phase2
+  plot_dir: outputs/plots

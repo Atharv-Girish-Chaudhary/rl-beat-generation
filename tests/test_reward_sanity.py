@@ -35,7 +35,9 @@ def test_reward_sanity():
         rewards[name] = reward
         print(f"Grid: {name:10} | Raw Drum Score: {raw_score:6.3f} | Final Reward: {reward:6.3f}")
         
-    assert rewards["all_ones"] < 0, f"Expected reward for 'all_ones' to be < 0, got {rewards['all_ones']}"
+    # _evaluate_drums clips its score to [0, 1], so the worst possible grid scores
+    # exactly 0.0 (never negative — the old `< 0` assertion predates the clip).
+    assert rewards["all_ones"] == 0.0, f"Expected reward for 'all_ones' to be 0.0 (clip floor), got {rewards['all_ones']}"
     assert rewards["musical"] > rewards["all_ones"], "Expected 'musical' to have higher reward than 'all_ones'"
     assert rewards["musical"] > 0.5, f"Expected 'musical' reward > 0.5, got {rewards['musical']}"
 

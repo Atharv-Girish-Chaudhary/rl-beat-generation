@@ -55,7 +55,6 @@ networkx==3.4.2
 numba==0.64.0
 numpy==2.2.6
 opencv-python==4.13.0.92
-packaging @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_packaging_1769093650/work
 pandas==2.3.3
 parso==0.8.6
 pexpect==4.9.0

@@ -21,12 +21,15 @@ Atharv Chaudhary · Taha Ucar · Yixun Li
 *Left: agent at epoch 0. Right: best Phase 1 checkpoint (epoch 486, reward 0.942). Blue = active
 cell, number = sample ID chosen.*
 
+🔊 **Listen:** [outputs/beat_sample.wav](outputs/beat_sample.wav) — a Phase 1 beat rendered by
+`scripts/generate_audio.py`.
+
 ### Streamlit App
 
 Run the interactive demo locally:
 
 ```bash
-conda activate rl-beats
+conda activate beat_env
 pip install streamlit
 streamlit run app.py
 ```
@@ -159,14 +162,21 @@ Evaluated over 20 episodes using `evaluation/evaluate.py` with `actor_phase1_bes
 | HiHat | **0.4844 ± 0.0762** | Balanced |
 | Clap | **0.1375 ± 0.0250** | Very sparse — musically realistic |
 
-**Random baseline** (20 episodes, `evaluation/evaluate_baseline.py`):
+**Random baseline** (20 episodes, `evaluation/evaluate_baseline.py`) — values from the committed
+`outputs/random_baseline_report.json`:
 
 | Metric | Random Agent | PPO Agent (v3) |
 |--------|-------------|----------------|
-| Rule reward | ~0.10 | **0.9585** |
-| Discriminator score | ~0.50 | **0.0005** |
-| Beat density | ~0.50 | **0.4508** |
-| Groove consistency | ~0.25 | **0.3971** |
+| Rule reward | 0.4170 ± 0.2129 | **0.9585 ± 0.1330** |
+| Discriminator score | 0.00007 | **0.0005** |
+| Beat density | 0.9438 | **0.4508** |
+| Groove consistency | 0.8993* | **0.3971** |
+
+The trained agent reaches **0.96 vs 0.42** rule reward — a **+130% relative improvement** — while
+producing beats at roughly half the random agent's density.
+
+*\* Baseline groove consistency uses a different formula (half-bar Jaccard) than the agent metric
+(strong-beat fraction), so the two values are not directly comparable.*
 
 **Training progression:**
 
@@ -267,7 +277,7 @@ rl-beat-generation/
 │       └── {layer}/metadata.json         # ID → filename mapping
 │
 ├── outputs/
-│   ├── checkpoints/                      # Model weights (gitignored)
+│   ├── checkpoints/                      # Model weights (gitignored — download from the v1.0-checkpoints Release)
 │   │   ├── actor_phase1_best.pth         # Best Phase 1 actor (v3, epoch 486)
 │   │   ├── critic_phase1_best.pth
 │   │   ├── discriminator_phase1_v2.pt    # Phase 1 discriminator (95.12% val acc)
@@ -351,8 +361,8 @@ make hpc-pull        # pull outputs back
 git clone https://github.com/Atharv-Girish-Chaudhary/rl-beat-generation.git
 cd rl-beat-generation
 
-conda create -n rl-beats python=3.10
-conda activate rl-beats
+conda create -n beat_env python=3.10
+conda activate beat_env
 
 # macOS (CPU / MPS) or any non-CUDA system — for development and inference:
 pip install torch torchvision torchaudio
@@ -365,8 +375,17 @@ pip install -e .
 
 *Note: `requirements.txt` is the locked Linux/CUDA reproducibility manifest. On macOS, the platform-specific torch install above plus `pip install -e .` is sufficient for development and inference.*
 
-Checkpoints and processed data are gitignored — run training scripts or pull from HPC to populate
-`outputs/checkpoints/`.
+**Download pretrained weights** (needed for the demo and evaluation — checkpoints are gitignored):
+
+```bash
+# via GitHub CLI (or download manually from the Releases page)
+gh release download v1.0-checkpoints --repo Atharv-Girish-Chaudhary/rl-beat-generation --dir outputs/checkpoints
+```
+
+All seven checkpoints (~14 MB) are published under the
+[`v1.0-checkpoints` Release](https://github.com/Atharv-Girish-Chaudhary/rl-beat-generation/releases/tag/v1.0-checkpoints).
+Alternatively, retrain from scratch with the training scripts below. Processed Groove data
+(`data/processed/`) is also gitignored — regenerate it via the "Retrain the discriminator" steps.
 
 ---
 
@@ -375,7 +394,7 @@ Checkpoints and processed data are gitignored — run training scripts or pull f
 **Run the Streamlit app:**
 
 ```bash
-conda activate rl-beats
+conda activate beat_env
 streamlit run app.py
 # Opens at localhost:8501 — use the Phase selector to switch between 4×16 and 8×16
 ```
@@ -383,7 +402,7 @@ streamlit run app.py
 **Retrain from scratch (Phase 1):**
 
 ```bash
-conda activate rl-beats
+conda activate beat_env
 python scripts/train_ppo.py --phase 1
 # Saves actor_phase1_best.pth, critic_phase1_best.pth to outputs/checkpoints/
 ```

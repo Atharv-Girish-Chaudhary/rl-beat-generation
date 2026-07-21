@@ -30,7 +30,7 @@
 \maketitle
 
 \begin{abstract}
-We formulate drum beat generation as a sequential decision-making problem and train a Proximal Policy Optimization (PPO) agent to fill a $4 \times 16$ beat grid one instrument-step at a time. A pre-trained convolutional discriminator, trained on the Groove MIDI Dataset, provides an adversarial reward signal that complements a handcrafted rule reward. On Phase 1 (four instruments), the trained PPO agent achieves a mean rule reward of $0.959 \pm 0.133$ compared to $0.417 \pm 0.213$ for a random baseline --- a $130\%$ relative improvement --- while producing beats at roughly half the density of the random agent, demonstrating that the agent has learned sparse, musically structured patterns. We further extend the system to Phase 2 (eight instruments) and present results and analysis of the challenges that arise from scaling the action space. We discuss limitations, including a discriminator reward collapse, and motivate Soft Actor-Critic (SAC) as a planned direction for Phase 2.
+We formulate drum beat generation as a sequential decision-making problem and train a Proximal Policy Optimization (PPO) agent to fill a $4 \times 16$ beat grid one instrument-step at a time. A pre-trained transformer discriminator, trained on the Groove MIDI Dataset, provides an adversarial reward signal that complements a handcrafted rule reward. On Phase 1 (four instruments), the trained PPO agent achieves a mean rule reward of $0.959 \pm 0.133$ compared to $0.417 \pm 0.213$ for a random baseline --- a $130\%$ relative improvement --- while producing beats at roughly half the density of the random agent, demonstrating that the agent has learned sparse, musically structured patterns. We further extend the system to Phase 2 (eight instruments) and present results and analysis of the challenges that arise from scaling the action space. We discuss limitations, including a discriminator reward collapse, and motivate Soft Actor-Critic (SAC) as a planned direction for Phase 2.
 \end{abstract}
 
 \section{Introduction}
@@ -57,7 +57,7 @@ The reward is issued at the end of each episode (terminal reward) and decomposes
 \[
 R = \alpha \cdot R_{\text{rule}} + \beta \cdot R_{\text{disc}}
 \]
-where $R_{\text{rule}} \in [0, 1]$ is the rule-based score and $R_{\text{disc}} \in [0, 1]$ is the discriminator's probability that the beat is real. In Phase 1, $\alpha = 0.9$ and $\beta = 0.1$, weighting the structured heuristics heavily while allowing the discriminator to shape finer aesthetic details.
+where $R_{\text{rule}} \in [0, 1]$ is the rule-based score and $R_{\text{disc}} \in [0, 1]$ is the discriminator's probability that the beat is real. In the final Phase 1 configuration (v3), $\alpha = 0.7$ and $\beta = 0.3$, weighting the structured heuristics heavily while allowing the discriminator to shape finer aesthetic details. (Earlier runs used $\alpha = 0.9, \beta = 0.1$ (v1) and $\alpha = 0.6, \beta = 0.4$ (v2).)
 
 \paragraph{Rule Reward.} $R_{\text{rule}}$ encodes the following musical conventions:
 \begin{itemize}[nosep]
@@ -68,7 +68,7 @@ where $R_{\text{rule}} \in [0, 1]$ is the rule-based score and $R_{\text{disc}} 
 \end{itemize}
 Each sub-rule is normalized to $[0, 1]$ and averaged, yielding $R_{\text{rule}}$.
 
-\paragraph{Discriminator Reward.} A convolutional binary classifier $D_\phi$ is trained to distinguish real Groove MIDI beats from agent-generated ones. At evaluation time, its sigmoid output $D_\phi(g) \in [0, 1]$ for a generated beat $g$ serves as $R_{\text{disc}}$. The discriminator is \textit{frozen} during PPO training; it is not updated adversarially. A notable challenge of this formulation is that the reward is issued only at episode termination, requiring the agent to learn credit assignment across up to 64 sequential placement decisions with no intermediate signal.
+\paragraph{Discriminator Reward.} A transformer-encoder binary classifier $D_\phi$ is trained to distinguish real Groove MIDI beats from agent-generated ones. At evaluation time, its sigmoid output $D_\phi(g) \in [0, 1]$ for a generated beat $g$ serves as $R_{\text{disc}}$. The discriminator is \textit{frozen} during PPO training; it is not updated adversarially. A notable challenge of this formulation is that the reward is issued only at episode termination, requiring the agent to learn credit assignment across up to 64 sequential placement decisions with no intermediate signal.
 
 \section{Data}
 
@@ -84,7 +84,7 @@ Each MIDI file is segmented into one-bar windows. Steps with any MIDI velocity $
 
 \subsection{Discriminator Architecture}
 
-The discriminator $D_\phi$ is a lightweight convolutional network that takes a $C \times 16$ beat grid as input, where $C \in \{4, 8\}$ is the number of instrument channels. The architecture consists of two convolutional layers with LeakyReLU activations, followed by a fully connected layer and a sigmoid output. For Phase 1, the final discriminator ({\tt discriminator\_phase1\_v2}) achieves $95.12\%$ validation accuracy distinguishing real Groove beats from random grids. Figure \ref{fig:disc} shows the training and validation loss curves.
+The discriminator $D_\phi$ is a lightweight transformer encoder that takes a $C \times 16$ beat grid as input, where $C \in \{4, 8\}$ is the number of instrument channels. Each of the 16 time steps is embedded by a linear projection of its $C$-channel instrument column plus a learned positional embedding ($d_{\text{model}} = 64$); two encoder blocks (4-head self-attention, layer normalization, and a feed-forward sublayer with $d_{\text{ff}} = 128$) are followed by mean pooling over time and a two-layer classifier head that outputs a real/fake logit (sigmoid applied at evaluation time). For Phase 1, the final discriminator ({\tt discriminator\_phase1\_v2}) achieves $95.12\%$ validation accuracy distinguishing real Groove beats from random grids. Figure \ref{fig:disc} shows the training and validation loss curves.
 
 \begin{figure}[H]
     \centering
@@ -228,7 +228,7 @@ This is consistent with how experienced drummers program beats: kick and hi-hat 
 
 \subsection{Discriminator Limitations}
 
-The discriminator reward component ($\beta = 0.1$) plays a secondary but measurable role in Phase 1, contributing a $7.4\times$ improvement in discriminator score over the random baseline. However, the frozen discriminator design has a fundamental limitation: the agent cannot push the discriminator score much higher without the discriminator updating to respond. This is distinct from a full GAN training loop, where the discriminator and generator update adversarially. In our setup, once the agent reaches the discriminator's ``real'' manifold, the gradient signal plateaus.
+The discriminator reward component ($\beta = 0.3$) plays a secondary but measurable role in Phase 1, contributing a $7.4\times$ improvement in discriminator score over the random baseline. However, the frozen discriminator design has a fundamental limitation: the agent cannot push the discriminator score much higher without the discriminator updating to respond. This is distinct from a full GAN training loop, where the discriminator and generator update adversarially. In our setup, once the agent reaches the discriminator's ``real'' manifold, the gradient signal plateaus.
 
 This motivates a future direction: interleaving discriminator updates with PPO training in a self-play loop, where the discriminator continuously retrains on the agent's current output distribution.
 

@@ -36,7 +36,7 @@ from beat_rl.models.actor import CNNLayerStepSampleActor
 
 LAYER_NAMES = ["kick", "snare", "hihat", "clap"]   # Layer 0–3
 SAMPLES_DIR = REPO_ROOT / "data" / "samples"
-CHECKPOINT_PATH = REPO_ROOT / "outputs" / "checkpoints" / "actor_best.pth"
+CHECKPOINT_PATH = REPO_ROOT / "outputs" / "checkpoints" / "actor_phase1_best.pth"
 
 L, T, S = 4, 16, 15                                 # Phase 1 dims
 LAYER_TO_SAMPLES = {i: list(range(1, S + 1)) for i in range(L)}

@@ -59,7 +59,6 @@ data/samples_processed/
 
 # ===== Project: Outputs =====
 outputs/checkpoints/
-outputs/beat_sample.wav
 outputs/plots/beat_grid_epoch_*.png
 
 # ===== Model Weights =====
@@ -76,6 +75,8 @@ outputs/plots/beat_grid_epoch_*.png
 *.m4a
 *.mid
 *.midi
+# Exception: one committed demo render (see README Demo section)
+!outputs/beat_sample.wav
 
 # ===== LaTeX build artifacts =====
 docs/*.aux

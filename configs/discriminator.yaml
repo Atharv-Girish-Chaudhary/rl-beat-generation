@@ -1,3 +1,5 @@
+# NOTE: Reference only — scripts/train_discriminator.py is CLI-driven
+# and does NOT read this file. Values below mirror the committed training run.
 data:
   path: data/processed/groove_grids.npy
 
@@ -8,7 +10,7 @@ model:
   d_ff: 128
 
 training:
-  epochs: 15
+  epochs: 5
   batch_size: 128
   lr: 3.0e-4
   val_split: 0.2
