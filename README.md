@@ -29,7 +29,7 @@ cell, number = sample ID chosen.*
 Run the interactive demo locally:
 
 ```bash
-conda activate beat_env
+source .venv/bin/activate
 pip install streamlit
 streamlit run app.py
 ```
@@ -313,7 +313,6 @@ rl-beat-generation/
 │   ├── phase2_diagnostic.md              # Root-cause analysis of Phase 2 density issue
 │   └── PROGRESS.md                       # Development status tracker
 │
-├── environment.yml
 ├── requirements.txt
 ├── Makefile
 └── setup.py
@@ -361,19 +360,28 @@ make hpc-pull        # pull outputs back
 git clone https://github.com/Atharv-Girish-Chaudhary/rl-beat-generation.git
 cd rl-beat-generation
 
-conda create -n beat_env python=3.10
-conda activate beat_env
+python3.10 -m venv .venv
+source .venv/bin/activate
 
-# macOS (CPU / MPS) or any non-CUDA system — for development and inference:
+# Install torch first, per platform:
+#   macOS (CPU / MPS) or any non-CUDA system — development and inference:
 pip install torch torchvision torchaudio
+#   Linux with CUDA (HPC, Colab) — training:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 
-# Linux with CUDA (HPC, Colab) — for training:
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
-
+pip install -r requirements.txt
 pip install -e .
 ```
 
-*Note: `requirements.txt` is the locked Linux/CUDA reproducibility manifest. On macOS, the platform-specific torch install above plus `pip install -e .` is sufficient for development and inference.*
+*`requirements.txt` is the single locked dependency source. The local `.venv/` is gitignored.
+The HPC sbatch scripts activate a conda env named `beat_env` — build it from the same lockfile:*
+
+```bash
+conda create -n beat_env python=3.10
+conda activate beat_env
+pip install -r requirements.txt
+pip install -e .
+```
 
 **Download pretrained weights** (needed for the demo and evaluation — checkpoints are gitignored):
 
@@ -394,7 +402,7 @@ Alternatively, retrain from scratch with the training scripts below. Processed G
 **Run the Streamlit app:**
 
 ```bash
-conda activate beat_env
+source .venv/bin/activate
 streamlit run app.py
 # Opens at localhost:8501 — use the Phase selector to switch between 4×16 and 8×16
 ```
@@ -402,7 +410,7 @@ streamlit run app.py
 **Retrain from scratch (Phase 1):**
 
 ```bash
-conda activate beat_env
+source .venv/bin/activate
 python scripts/train_ppo.py --phase 1
 # Saves actor_phase1_best.pth, critic_phase1_best.pth to outputs/checkpoints/
 ```
