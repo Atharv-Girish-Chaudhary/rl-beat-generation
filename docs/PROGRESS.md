@@ -278,8 +278,8 @@ rl-beat-generation/
 │   │   ├── critic_phase2_best.pth
 │   │   └── discriminator_phase2.pt
 │   ├── plots/
-│   │   ├── first_vs_best_comparison.png  # Epoch 0 vs best checkpoint grid
-│   │   ├── ppo_training_plot.png         # Reward / actor loss / critic loss curves
+│   │   ├── first_vs_best_comparison_phase2.png  # Epoch 0 vs best epoch grid (per-phase filenames)
+│   │   ├── ppo_training_plot_phase2.png  # Reward / actor loss / critic loss curves (per-phase filenames)
 │   │   ├── discriminator_training_plot.png
 │   │   ├── baseline_comparison.png       # PPO vs random bar chart (Phase 1)
 │   │   └── baseline_comparison_phase2.png

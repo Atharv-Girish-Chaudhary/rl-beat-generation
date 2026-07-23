@@ -24,7 +24,9 @@ Atharv Chaudhary · Taha Ucar · Yixun Li
 
 The Phase 1 agent reaches **0.96 vs 0.42** rule reward — a **+130% relative improvement** over
 random — while producing beats at roughly half the random agent's density (0.4508 vs 0.9438).
-Best training reward: 0.942 (epoch 486/500). Phase 2 improves +41% over its baseline but
+Best Phase 1 training reward: 0.942 at epoch 486/500, as recorded in the
+[dev log](docs/PROGRESS.md#7-detailed-evaluation-results) — the plot backing this number was
+overwritten by the Phase 2 run. Phase 2 improves +41% over its baseline but
 converged to a documented density-trap optimum — see
 [Phase 2: a documented failure](#phase-2-a-documented-failure) below. Full metric tables
 (per-layer densities, training progression v1→v3, metric footnotes) are in
@@ -120,10 +122,12 @@ named `beat_env`, built from the same lockfile) are documented in
 
 ## Demo
 
-![First vs Best epoch comparison](outputs/plots/first_vs_best_comparison.png)
+![First vs Best epoch comparison](outputs/plots/first_vs_best_comparison_phase2.png)
 
-*Left: agent at epoch 0. Right: best Phase 1 checkpoint (epoch 486, reward 0.942). Blue = active
-cell, number = sample ID chosen.*
+*From the Phase 2 run (8×16 grid). Left: agent at epoch 0 (reward 0.600). Right: best Phase 2
+checkpoint (epoch 382, reward 0.608). Blue = active cell, number = sample ID chosen. The
+near-saturated grids show the density trap described in
+[Phase 2: a documented failure](#phase-2-a-documented-failure).*
 
 **Listen:** [outputs/beat_sample.wav](outputs/beat_sample.wav) — a Phase 1 beat rendered by
 `scripts/generate_audio.py`.

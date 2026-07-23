@@ -3,10 +3,10 @@ import numpy as np
 import pretty_midi
 
 # ===== Path setup =====
-# This script is located in beat_rl/data/
+# This script is located in scripts/
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Project root is two levels up: beat_rl/data/ -> beat_rl/ -> project root
+# Project root is one level up: scripts/ -> project root
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
 # Input: raw Groove MIDI files

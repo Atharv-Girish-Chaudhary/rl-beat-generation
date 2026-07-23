@@ -4,11 +4,11 @@ import requests
 import time
 
 # ===== Path setup =====
-# This script is located in beat_rl/data/
+# This script is located in scripts/
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Project root is two levels up: beat_rl/data/ -> beat_rl/ -> project root
-PROJECT_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
+# Project root is one level up: scripts/ -> project root
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 
 # Output directory for downloaded samples
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "data", "samples")

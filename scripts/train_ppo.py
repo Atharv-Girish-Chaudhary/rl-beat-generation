@@ -23,7 +23,7 @@ def compute_gae(rewards, values, next_value, dones, gamma, lam):
         next_value = values[step]
     return advantages
 
-def render_grid(grid, epoch, save_dir="outputs/plots", ax=None):
+def render_grid(grid, epoch, save_dir="outputs/plots", ax=None, phase=None):
     """Visualizes the final grid structure for inspection. Can render into a subplot axis."""
     standalone = ax is None
     if standalone:
@@ -49,7 +49,8 @@ def render_grid(grid, epoch, save_dir="outputs/plots", ax=None):
     
     if standalone:
         plt.tight_layout()
-        plt.savefig(os.path.join(save_dir, f"beat_grid_epoch_{epoch}.png"))
+        tag = f"_phase{phase}" if phase is not None else ""
+        plt.savefig(os.path.join(save_dir, f"beat_grid_epoch_{epoch}{tag}.png"))
         plt.close()
 
 def train_ppo(
@@ -254,7 +255,7 @@ def train_ppo(
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(str(plot_dir / "ppo_training_plot.png"))
+    plt.savefig(str(plot_dir / f"ppo_training_plot_phase{phase}.png"))
     plt.close()
     
     # Generate Side-by-Side Comparison: First Epoch vs Best Epoch
@@ -270,18 +271,18 @@ def train_ppo(
         
         fig.suptitle('Beat Grid Evolution: First vs Best', fontsize=16, fontweight='bold', y=1.02)
         plt.tight_layout()
-        plt.savefig(str(plot_dir / "first_vs_best_comparison.png"), bbox_inches='tight')
+        plt.savefig(str(plot_dir / f"first_vs_best_comparison_phase{phase}.png"), bbox_inches='tight')
         plt.close()
         
         # Save standalone grid PNGs for epoch 0 and best
-        render_grid(first_grid, epoch=0, save_dir=str(plot_dir))
-        render_grid(best_grid, epoch=best_epoch, save_dir=str(plot_dir))
+        render_grid(first_grid, epoch=0, save_dir=str(plot_dir), phase=phase)
+        render_grid(best_grid, epoch=best_epoch, save_dir=str(plot_dir), phase=phase)
     
     print(f"\nPPO training finished. Best model at Epoch {best_epoch} (Reward: {best_reward:.3f}).")
     print(f"Saved: {actor_ckpt_path}")
     print(f"Saved: {critic_ckpt_path}")
-    print(f"Saved: {plot_dir / 'first_vs_best_comparison.png'}")
-    print(f"Saved: {plot_dir / 'beat_grid_epoch_0.png'}, {plot_dir / f'beat_grid_epoch_{best_epoch}.png'}")
+    print(f"Saved: {plot_dir / f'first_vs_best_comparison_phase{phase}.png'}")
+    print(f"Saved: {plot_dir / f'beat_grid_epoch_0_phase{phase}.png'}, {plot_dir / f'beat_grid_epoch_{best_epoch}_phase{phase}.png'}")
     return history
 
 if __name__ == "__main__":
